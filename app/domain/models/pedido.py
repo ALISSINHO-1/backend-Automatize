@@ -10,6 +10,7 @@ from sqlalchemy import ( # type: ignore
     Numeric,
     String,
     Text,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
@@ -76,6 +77,7 @@ class Pedido(Base):
     )
 
     updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-    )
+    DateTime(timezone=True),
+    server_default=text("CURRENT_TIMESTAMP"),
+    onupdate=func.now(), # type: ignore
+)

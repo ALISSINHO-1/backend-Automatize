@@ -14,13 +14,26 @@ ModelType = TypeVar("ModelType", bound=Base) # type: ignore
 
 class BaseRepository(Generic[ModelType]):
     """
-    Repositório base para operações comuns de persistência.
+    Repositório base para operações genéricas de persistência.
 
-    Responsabilidade:
-    - encapsular acesso ao SQLAlchemy;
-    - fornecer CRUD básico;
-    - não conter regras de negócio.
+    Responsabilidades:
+    - consultas básicas;
+    - criação;
+    - atualização;
+    - exclusão;
+    - sincronização da sessão com flush().
+
+    O controle da transação (commit/rollback) pertence
+    à camada Service/Use Case.
     """
+
+    protected_fields: frozenset[str] = frozenset(
+        {
+            "id",
+            "created_at",
+            "updated_at",
+        }
+    )
 
     def __init__(
         self,
@@ -30,8 +43,14 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.db = db
 
-    def get_by_id(self, entity_id: UUID) -> ModelType | None:
-        return self.db.get(self.model, entity_id)
+    def get_by_id(
+        self,
+        entity_id: UUID,
+    ) -> ModelType | None:
+        return self.db.get(
+            self.model,
+            entity_id,
+        )
 
     def get_all(
         self,
@@ -64,9 +83,37 @@ class BaseRepository(Generic[ModelType]):
         entity: ModelType,
         data: Mapping[str, Any],
     ) -> ModelType:
+
+        # Impede alteração de campos internos/sensíveis.
+        protected = (
+            set(data.keys())
+            & self.protected_fields
+        )
+
+        if protected:
+            fields = ", ".join(
+                sorted(protected)
+            )
+
+            raise ValueError(
+                "Não é permitido alterar "
+                f"campos protegidos: {fields}"
+            )
+
+        # Impede campos que não existem no model.
         for field, value in data.items():
-            if hasattr(entity, field):
-                setattr(entity, field, value)
+
+            if not hasattr(entity, field):
+                raise ValueError(
+                    f"Campo '{field}' não existe "
+                    f"em {self.model.__name__}."
+                )
+
+            setattr(
+                entity,
+                field,
+                value,
+            )
 
         self.db.flush()
         self.db.refresh(entity)
@@ -77,5 +124,6 @@ class BaseRepository(Generic[ModelType]):
         self,
         entity: ModelType,
     ) -> None:
+
         self.db.delete(entity)
         self.db.flush()
