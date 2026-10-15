@@ -17,7 +17,7 @@ O Automatize busca centralizar solicitações, ajustes, informações e aprovaç
 - Configuração de origens CORS por variável de ambiente.
 - Routers internos de autenticação (`app/api/v1/endpoints/auth.py`) e demandas (`app/api/v1/endpoints/demandas.py`), agregados em `app/api/v1/router.py`.
 
-Os routers estão preparados, mas ainda não declaram operações HTTP. Por isso, `/auth` e `/demandas` não aparecem como caminhos no Swagger enquanto estiverem vazios.
+Os routers estão preparados, mas ainda não declaram operações HTTP. Por isso, `/auth`, `/demandas` e `/pedidos` não aparecem como caminhos no Swagger enquanto estiverem vazios. O router de pedidos vindo da `main` foi preservado sob `/pedidos`, sem operações implementadas.
 
 ### Contratos previstos, ainda indisponíveis
 
@@ -25,6 +25,7 @@ Os routers estão preparados, mas ainda não declaram operações HTTP. Por isso
 - `/demandas` será o caminho público previsto para futuras operações CRUD de demandas.
 - Os caminhos públicos previstos não incluem o prefixo `/api/v1`, para manter compatibilidade com o contrato atual do frontend.
 - A API poderá expor o recurso como “demandas” e reutilizar internamente a entidade `Pedido` e a tabela `pedidos`.
+- `/demandas` é o nome público previsto para o contrato do frontend; `/pedidos` preserva o nome do router e da entidade existentes. Os dois caminhos não representam operações implementadas nesta etapa e não implicam renomear a entidade ou a tabela.
 - Os identificadores persistidos são UUID e serão serializados como texto no JSON.
 
 A estrutura dos routers está preparada nesta etapa, mas login e CRUD continuam pendentes e pertencem às próximas tarefas.

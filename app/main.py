@@ -8,7 +8,11 @@ from app.core.config import Settings, settings
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     configured_settings = app_settings if app_settings is not None else Settings()
 
-    application = FastAPI(title="Automatize API")
+    application = FastAPI(
+        title="Automatize API",
+        description="API para gestão de ordens de serviço, integração mobile e homologação formal.",
+        version="1.0.0",
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configured_settings.cors_origins,
@@ -20,7 +24,12 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
 
     @application.get("/", tags=["Root"])
     def read_root() -> dict[str, str]:
-        return {"message": "Automatize API"}
+        return {
+            "message": "Automatize API",
+            "sistema": "Automatize API",
+            "status": "Online",
+            "docs": "/docs",
+        }
 
     @application.get(
         "/health",
