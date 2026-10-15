@@ -6,7 +6,7 @@ from app.core.config import Settings, settings
 
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
-    configured_settings = app_settings or Settings()
+    configured_settings = app_settings if app_settings is not None else Settings()
 
     application = FastAPI(title="Automatize API")
     application.add_middleware(
@@ -16,7 +16,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    application.include_router(api_v1_router, prefix="/api/v1")
+    application.include_router(api_v1_router)
 
     @application.get("/", tags=["Root"])
     def read_root() -> dict[str, str]:

@@ -1,6 +1,6 @@
 # Automatize - Backend
 
-Backend da plataforma **Automatize**, projeto acadêmico de Engenharia de Software. Esta etapa prepara a API para execução local e disponibiliza uma verificação de saúde.
+Backend da plataforma **Automatize**, projeto acadêmico de Engenharia de Software. A aplicação FastAPI está preparada para execução local e disponibiliza uma verificação de saúde.
 
 ## Sobre o projeto
 
@@ -13,14 +13,25 @@ O Automatize busca centralizar solicitações, ajustes, informações e aprovaç
 - Modelos SQLAlchemy para usuários, pedidos, ocorrências, anexos, aceites formais e logs de auditoria.
 - Migrações Alembic para o esquema do banco.
 - Repositórios base e de pedidos com operações de persistência e consulta.
-- Aplicação FastAPI, rota raiz, prefixo `/api/v1` e rota `GET /health`.
+- Aplicação FastAPI, rota raiz e rota `GET /health`.
 - Configuração de origens CORS por variável de ambiente.
+- Routers internos de autenticação (`app/api/v1/endpoints/auth.py`) e demandas (`app/api/v1/endpoints/demandas.py`), agregados em `app/api/v1/router.py`.
 
-Os modelos e repositórios não significam que existam endpoints HTTP de pedidos. Ainda não há rotas de domínio nem camada de serviços implementadas.
+Os routers estão preparados, mas ainda não declaram operações HTTP. Por isso, `/auth` e `/demandas` não aparecem como caminhos no Swagger enquanto estiverem vazios.
+
+### Contratos previstos, ainda indisponíveis
+
+- `POST /auth/login` será o contrato previsto para autenticação.
+- `/demandas` será o caminho público previsto para futuras operações CRUD de demandas.
+- Os caminhos públicos previstos não incluem o prefixo `/api/v1`, para manter compatibilidade com o contrato atual do frontend.
+- A API poderá expor o recurso como “demandas” e reutilizar internamente a entidade `Pedido` e a tabela `pedidos`.
+- Os identificadores persistidos são UUID e serão serializados como texto no JSON.
+
+A estrutura dos routers está preparada nesta etapa, mas login e CRUD continuam pendentes e pertencem às próximas tarefas.
 
 ### Previsto para etapas futuras
 
-- Endpoints CRUD e regras de negócio para pedidos e demais recursos.
+- Implementação do login e dos endpoints CRUD de demandas, além das regras de negócio.
 - Autenticação e autorização.
 - Regras de transição de status, cálculo de progresso e automações.
 - Integrações de armazenamento e fluxos de aprovação.

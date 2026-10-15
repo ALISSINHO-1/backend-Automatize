@@ -36,6 +36,20 @@ def test_health_is_in_openapi(client: TestClient) -> None:
     assert "get" in response.json()["paths"]["/health"]
 
 
+def test_domain_routers_have_expected_prefixes_and_no_operations() -> None:
+    from app.api.v1.endpoints.auth import router as auth_router
+    from app.api.v1.endpoints.demandas import router as demandas_router
+    from app.api.v1.router import endpoint_routers
+
+    assert auth_router.prefix == "/auth"
+    assert auth_router.tags == ["Autenticação"]
+    assert demandas_router.prefix == "/demandas"
+    assert demandas_router.tags == ["Demandas"]
+    assert auth_router.routes == []
+    assert demandas_router.routes == []
+    assert endpoint_routers == (auth_router, demandas_router)
+
+
 def test_settings_parse_json_cors_origins(
     monkeypatch: pytest.MonkeyPatch,
     app_components,
