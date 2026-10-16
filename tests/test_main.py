@@ -14,11 +14,21 @@ def app_components(tmp_path, monkeypatch):
     return Settings, create_app
 
 
+def valid_settings(Settings, **overrides):
+    values = {
+        "_env_file": None,
+        "DATABASE_URL": "postgresql+psycopg2://unit:unit@localhost:5432/unit_test",
+        "JWT_SECRET_KEY": "unit-test-secret-" + "x" * 32,
+        "cors_origins": [],
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
 @pytest.fixture
 def client(app_components) -> Generator[TestClient, None, None]:
     Settings, create_app = app_components
-    application = create_app(Settings(_env_file=None, cors_origins=[]))
-    with TestClient(application) as test_client:
+    with TestClient(create_app(valid_settings(Settings))) as test_client:
         yield test_client
 
 
@@ -36,7 +46,7 @@ def test_health_is_in_openapi(client: TestClient) -> None:
     assert "get" in response.json()["paths"]["/health"]
 
 
-def test_domain_routers_have_expected_prefixes_and_no_operations() -> None:
+def test_domain_routers_have_expected_prefixes() -> None:
     from app.api.v1.endpoints.auth import router as auth_router
     from app.api.v1.endpoints.demandas import router as demandas_router
     from app.api.v1.router import endpoint_routers
@@ -45,15 +55,12 @@ def test_domain_routers_have_expected_prefixes_and_no_operations() -> None:
     assert auth_router.tags == ["Autenticação"]
     assert demandas_router.prefix == "/demandas"
     assert demandas_router.tags == ["Demandas"]
-    assert auth_router.routes == []
+    assert [route.path for route in auth_router.routes] == ["/auth/login"]
     assert demandas_router.routes == []
     assert endpoint_routers == (auth_router, demandas_router)
 
 
-def test_settings_parse_json_cors_origins(
-    monkeypatch: pytest.MonkeyPatch,
-    app_components,
-) -> None:
+def test_settings_parse_json_cors_origins(monkeypatch, app_components) -> None:
     Settings, _ = app_components
     monkeypatch.setenv(
         "CORS_ORIGINS",
@@ -71,14 +78,13 @@ def test_settings_parse_json_cors_origins(
 def test_settings_reject_wildcard_cors_origin(app_components) -> None:
     Settings, _ = app_components
 
-    with pytest.raises(ValueError, match=r"não pode conter '\*'"):
+    with pytest.raises(ValueError, match="CORS_ORIGINS"):
         Settings(_env_file=None, cors_origins=["*"])
 
 
 def test_unconfigured_origin_is_not_authorized(app_components) -> None:
     Settings, create_app = app_components
-    application = create_app(Settings(_env_file=None, cors_origins=[]))
-    with TestClient(application) as client:
+    with TestClient(create_app(valid_settings(Settings))) as client:
         response = client.options(
             "/health",
             headers={
@@ -93,13 +99,11 @@ def test_unconfigured_origin_is_not_authorized(app_components) -> None:
 
 def test_configured_origin_is_authorized(app_components) -> None:
     Settings, create_app = app_components
-    application = create_app(
-        Settings(
-            _env_file=None,
-            cors_origins=["http://localhost:3000"],
-        )
+    application_settings = valid_settings(
+        Settings,
+        cors_origins=["http://localhost:3000"],
     )
-    with TestClient(application) as client:
+    with TestClient(create_app(application_settings)) as client:
         response = client.options(
             "/health",
             headers={
@@ -110,3 +114,25 @@ def test_configured_origin_is_authorized(app_components) -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_health_does_not_open_a_database_connection(app_components, monkeypatch) -> None:
+    Settings, create_app = app_components
+    from sqlalchemy.engine import Engine
+
+    def unexpected_connect(*args, **kwargs):
+        raise AssertionError("health must not connect to PostgreSQL")
+
+    monkeypatch.setattr(Engine, "connect", unexpected_connect)
+    application = create_app(valid_settings(Settings))
+    with TestClient(application) as test_client:
+        assert test_client.get("/health").json() == {"status": "ok"}
+
+
+def test_application_validates_required_settings_at_startup(app_components) -> None:
+    Settings, create_app = app_components
+    unconfigured = Settings(_env_file=None)
+
+    with pytest.raises(ValueError, match="DATABASE_URL é obrigatória"):
+        with TestClient(create_app(unconfigured)):
+            pass
