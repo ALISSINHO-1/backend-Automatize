@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_application_settings
 from app.core.config import Settings
 from app.core.database import get_db
 from app.domain.schemas.auth_schema import LoginRequest, TokenResponse
@@ -9,10 +9,6 @@ from app.services.auth_service import AuthenticationError, AuthService
 
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
-
-
-def get_application_settings(request: Request) -> Settings:
-    return request.app.state.settings
 
 
 @router.post(
