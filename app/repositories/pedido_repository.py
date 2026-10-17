@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from pydoc import text
 from typing import Sequence
 from uuid import UUID
-from xmlrpc.client import DateTime
 
-from sqlalchemy import select # type: ignore
-from sqlalchemy.orm import Session # type: ignore
-from sqlalchemy import func # type: ignore
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.domain.models.enums import StatusPedidoEnum
 from app.domain.models.pedido import Pedido
@@ -97,3 +94,40 @@ class PedidoRepository(BaseRepository[Pedido]):
         )
 
         return self.db.scalars(stmt).all()
+
+    def list_for_access_scope(
+        self,
+        *,
+        offset: int,
+        limit: int,
+        cliente_id: UUID | None = None,
+        responsavel_id: UUID | None = None,
+    ) -> Sequence[Pedido]:
+        """List demands, applying any ownership filter before pagination."""
+        stmt = select(Pedido)
+        if cliente_id is not None:
+            stmt = stmt.where(Pedido.cliente_id == cliente_id)
+        if responsavel_id is not None:
+            stmt = stmt.where(Pedido.responsavel_id == responsavel_id)
+
+        stmt = (
+            stmt.order_by(Pedido.created_at.asc(), Pedido.id.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self.db.scalars(stmt).all()
+
+    def get_by_id_for_access_scope(
+        self,
+        pedido_id: UUID,
+        *,
+        cliente_id: UUID | None = None,
+        responsavel_id: UUID | None = None,
+    ) -> Pedido | None:
+        """Fetch one demand inside its ownership scope, if one is supplied."""
+        stmt = select(Pedido).where(Pedido.id == pedido_id)
+        if cliente_id is not None:
+            stmt = stmt.where(Pedido.cliente_id == cliente_id)
+        if responsavel_id is not None:
+            stmt = stmt.where(Pedido.responsavel_id == responsavel_id)
+        return self.db.scalar(stmt)
