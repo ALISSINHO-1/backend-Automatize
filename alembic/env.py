@@ -19,8 +19,16 @@ if config.config_file_name is not None:
 
 # 3. Injeta a DATABASE_URL do .env na configuração do Alembic
 db_url = os.getenv("DATABASE_URL")
-if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+
+if not db_url:
+    raise ValueError("DATABASE_URL não configurada no arquivo .env")
+
+# ConfigParser interpreta % como interpolação.
+# Duplicamos o % apenas ao passar a URL para o Alembic.
+config.set_main_option(
+    "sqlalchemy.url",
+    db_url.replace("%", "%%"),
+)
 
 # 4. Associa os metadados do SQLAlchemy ao Alembic
 target_metadata = Base.metadata
