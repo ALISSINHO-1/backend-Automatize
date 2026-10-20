@@ -1,10 +1,13 @@
 ﻿from enum import Enum
 
-class StatusPedidoEnum(str, Enum):
+class StatusDemandaEnum(str, Enum):
     PLANEAMENTO = "PLANEAMENTO"
     EXECUCAO = "EXECUCAO"
     HOMOLOGACAO = "HOMOLOGACAO"
     CONCLUIDO = "CONCLUIDO"
+
+# Alias de compatibilidade com pedidos
+StatusPedidoEnum = StatusDemandaEnum
 
 class TipoOcorrenciaEnum(str, Enum):
     AJUSTE = "AJUSTE"
