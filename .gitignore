@@ -1,20 +1,31 @@
-# Ambiente virtual
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Ambientes virtuais
 venv/
 .venv/
 env/
 
-# Bytecode Python
+# Python, bytecode e caches
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Configurações locais e segredos
-.env
-
-# Base de dados local / SQLite
+# Bancos locais
 *.sqlite3
 *.db
 
 # IDEs
 .vscode/
 .idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
