@@ -1,22 +1,41 @@
-import os
-from dotenv import load_dotenv # type: ignore
-from sqlalchemy import create_engine # type: ignore
-from sqlalchemy.orm import declarative_base, sessionmaker # type: ignore
+from collections.abc import Generator
 
-load_dotenv()
+from fastapi import Request
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.core.config import Settings
 
-if not DATABASE_URL:
-    raise ValueError("A variável DATABASE_URL não está configurada no ficheiro .env!")
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Keep one metadata registry for every model, including imports made by Alembic.
 Base = declarative_base()
 
-def get_db():
-    """Injeção de dependência para obter a sessão da base de dados nas rotas FastAPI."""
-    db = SessionLocal()
+# These names remain available for existing imports. Applications bind their own
+# factory from their injected Settings during startup.
+engine: Engine | None = None
+SessionLocal = sessionmaker(autocommit=False, autoflush=False)
+
+
+def create_database_engine(configured_settings: Settings) -> Engine:
+    database_url = configured_settings.validate_database_configuration()
+    return create_engine(database_url, pool_pre_ping=True)
+
+
+def create_session_factory(database_engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=database_engine,
+    )
+
+
+def get_db(request: Request) -> Generator[Session, None, None]:
+    """Yield one request session and always close it, without committing."""
+    factory = (
+        getattr(request.app.state, "session_factory", SessionLocal)
+    )
+    db = factory()
     try:
         yield db
     finally:

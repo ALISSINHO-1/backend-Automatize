@@ -1,26 +1,29 @@
-# Variáveis de ambiente / segredos
+# Variáveis de ambiente e segredos
 .env
 .env.*
 !.env.example
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
 
 # Ambientes virtuais
 venv/
 .venv/
 env/
 
-# Testes / cache
+# Python, bytecode e caches
+__pycache__/
+*.py[cod]
+*$py.class
 .pytest_cache/
+.pytest_tmp*/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
 
-# IDE
+# Bancos locais
+*.sqlite3
+*.db
+
+# IDEs
 .vscode/
 .idea/
 

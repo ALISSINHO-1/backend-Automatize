@@ -111,9 +111,6 @@ class AnexoService:
             )
 
             self.db.commit()
-            self.db.refresh(anexo)
-
-            return anexo
 
         except Exception:
             self.db.rollback()
@@ -125,3 +122,8 @@ class AnexoService:
                 pass
 
             raise
+
+        # A refresh failure after commit cannot undo persisted metadata. Keep
+        # its object in Storage so the committed record never points to a deletion.
+        self.db.refresh(anexo)
+        return anexo

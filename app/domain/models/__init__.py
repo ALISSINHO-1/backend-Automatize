@@ -13,4 +13,5 @@ __all__ = [
     "Anexo",
     "AceiteFormal",
     "AuditoriaLog",
+    "HistoricoStatusPedido",
 ]

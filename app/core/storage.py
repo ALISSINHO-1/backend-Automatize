@@ -1,21 +1,20 @@
-from __future__ import annotations
+"""Compatibility imports for Storage infrastructure, initialized on demand."""
 
-from supabase import Client, create_client # type: ignore
+from functools import cache
 
-from app.core.config import settings
+from supabase import Client
 
-
-def create_supabase_client() -> Client:
-    if not settings.SUPABASE_URL:
-        raise RuntimeError("SUPABASE_URL não configurada.")
-
-    if not settings.SUPABASE_KEY:
-        raise RuntimeError("SUPABASE_KEY não configurada.")
-
-    return create_client(
-        settings.SUPABASE_URL,
-        settings.SUPABASE_KEY,
-    )
+from app.infrastructure.storage.supabase_storage import create_supabase_client
 
 
-supabase: Client = create_supabase_client()
+@cache
+def _legacy_client() -> Client:
+    return create_supabase_client()
+
+
+def __getattr__(name: str) -> Client:
+    # Preserve `from app.core.storage import supabase` without requiring
+    # Storage credentials when the module is merely imported by an API/tool.
+    if name == "supabase":
+        return _legacy_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

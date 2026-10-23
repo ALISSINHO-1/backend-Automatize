@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from app.repositories.historico_status_pedido_repository import (
-    HistoricoStatusPedidoRepository,
-)
-from typing import Sequence
+from typing import Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
+from app.domain.enums import StatusPedidoEnum
 from app.domain.models.pedido import Pedido
+from app.repositories.historico_status_pedido_repository import (
+    HistoricoStatusPedidoRepository,
+)
 from app.repositories.pedido_repository import PedidoRepository
 from app.schemas.pedido import PedidoCreate, PedidoUpdate
-
 
 
 class PedidoNaoEncontradoError(Exception):
@@ -24,6 +24,7 @@ class CodigoPedidoDuplicadoError(Exception):
 
 
 class PedidoService:
+    """Service responsável pelas regras e operações relacionadas aos pedidos."""
 
     def __init__(
         self,
@@ -38,6 +39,44 @@ class PedidoService:
             if historico_repository is not None
             else HistoricoStatusPedidoRepository(db)
         )
+
+    # ------------------------------------------------------------------
+    # Regras de ciclo de vida vindas da HML
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def calcular_progresso(cls, status: StatusPedidoEnum) -> float:
+        """
+        Calcula o percentual de progresso de acordo com o status.
+
+        TODO:
+        A regra definitiva de percentual ainda precisa ser definida
+        pela equipe.
+        """
+        # Mantido conforme implementação atual da HML.
+        pass
+
+    @classmethod
+    def validar_e_transitar(
+        cls,
+        status_atual: StatusPedidoEnum,
+        novo_status: StatusPedidoEnum,
+        motivo_regresso: Optional[str] = None,
+    ) -> float:
+        """
+        Valida uma transição entre estados do pedido.
+
+        TODO:
+        Implementar a máquina de estados estrita conforme as regras
+        de negócio definidas pela equipe.
+        """
+        # Mantido conforme implementação atual da HML.
+        pass
+
+    # ------------------------------------------------------------------
+    # Consultas
+    # ------------------------------------------------------------------
+
     def listar(
         self,
         *,
@@ -75,11 +114,14 @@ class PedidoService:
 
         return pedido
 
+    # ------------------------------------------------------------------
+    # Criação
+    # ------------------------------------------------------------------
+
     def criar(
         self,
         dados: PedidoCreate,
     ) -> Pedido:
-
         pedido_existente = self.repository.get_by_codigo(
             dados.codigo_identificador
         )
@@ -108,6 +150,10 @@ class PedidoService:
             self.db.rollback()
             raise
 
+    # ------------------------------------------------------------------
+    # Atualização
+    # ------------------------------------------------------------------
+
     def atualizar(
         self,
         pedido_id: UUID,
@@ -123,22 +169,17 @@ class PedidoService:
         )
 
         try:
+            novo_status = dados_atualizacao.get("status")
+            mudou_status = novo_status is not None and novo_status != status_anterior
+            if mudou_status and usuario_id is None:
+                raise ValueError("usuario_id é obrigatório para alteração de status.")
+
             pedido = self.repository.update(
                 pedido,
                 dados_atualizacao,
             )
 
-            novo_status = dados_atualizacao.get("status")
-
-            if (
-                novo_status is not None
-                and novo_status != status_anterior
-            ):
-                if usuario_id is None:
-                    raise ValueError(
-                        "usuario_id é obrigatório para alteração de status."
-                    )
-
+            if mudou_status:
                 self.historico_repository.create(
                     {
                         "pedido_id": pedido.id,
@@ -157,11 +198,14 @@ class PedidoService:
             self.db.rollback()
             raise
 
+    # ------------------------------------------------------------------
+    # Exclusão
+    # ------------------------------------------------------------------
+
     def excluir(
         self,
         pedido_id: UUID,
     ) -> None:
-
         pedido = self.buscar_por_id(pedido_id)
 
         try:

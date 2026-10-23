@@ -233,3 +233,29 @@ def test_criar_faz_rollback_e_remove_storage_se_banco_falhar(
     db_session.commit.assert_not_called()
     db_session.rollback.assert_called_once()
     storage.delete.assert_called_once_with(caminho)
+
+
+def test_refresh_failure_after_commit_keeps_storage_object(service, repository, storage, db_session):
+    repository.create.return_value = criar_anexo()
+    db_session.refresh.side_effect = RuntimeError("refresh failed")
+    with pytest.raises(RuntimeError, match="refresh failed"):
+        service.criar(
+            pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
+            conteudo=b"teste", content_type="application/pdf",
+        )
+    db_session.commit.assert_called_once()
+    db_session.rollback.assert_not_called()
+    storage.delete.assert_not_called()
+
+
+def test_commit_failure_rolls_back_and_removes_uploaded_object(service, repository, storage, db_session):
+    repository.create.return_value = criar_anexo()
+    storage.upload.return_value = "pedidos/teste/arquivo.pdf"
+    db_session.commit.side_effect = RuntimeError("commit failed")
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.criar(
+            pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
+            conteudo=b"teste", content_type="application/pdf",
+        )
+    db_session.rollback.assert_called_once()
+    storage.delete.assert_called_once_with("pedidos/teste/arquivo.pdf")

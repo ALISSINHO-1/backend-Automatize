@@ -437,6 +437,7 @@ def test_atualizar_status_sem_usuario_faz_rollback(
 
     db_session.commit.assert_not_called()
     db_session.rollback.assert_called_once()
+    repository.update.assert_not_called()
 
 
 def test_atualizar_status_rollback_se_historico_falhar(

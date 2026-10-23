@@ -8,6 +8,15 @@ from supabase import Client, create_client # type: ignore
 from app.core.config import settings
 
 
+def create_supabase_client() -> Client:
+    """Create a client only when Storage is requested."""
+    if not settings.SUPABASE_URL:
+        raise RuntimeError("SUPABASE_URL não configurada.")
+    if not settings.SUPABASE_KEY:
+        raise RuntimeError("SUPABASE_KEY não configurada.")
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+
 class StorageUploadError(Exception):
     pass
 
@@ -23,16 +32,7 @@ class SupabaseStorage:
         bucket: str | None = None,
     ) -> None:
         if client is None:
-            if not settings.SUPABASE_URL:
-                raise ValueError("SUPABASE_URL não configurada.")
-
-            if not settings.SUPABASE_KEY:
-                raise ValueError("SUPABASE_KEY não configurada.")
-
-            client = create_client(
-                settings.SUPABASE_URL,
-                settings.SUPABASE_KEY,
-            )
+            client = create_supabase_client()
 
         self.client = client
         self.bucket = bucket or settings.STORAGE_BUCKET_NAME
