@@ -13,11 +13,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Read the database URL from the centralized settings and validate only the
-# configuration needed by Alembic. Escaping preserves credentials containing %.
+# 3. Injeta a DATABASE_URL do .env na configuração do Alembic
 db_url = Settings().validate_database_configuration()
+# ConfigParser treats percent signs as interpolation, including URL escapes.
 config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
+# 4. Associa os metadados do SQLAlchemy ao Alembic
 target_metadata = Base.metadata
 
 

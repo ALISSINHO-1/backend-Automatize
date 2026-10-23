@@ -44,8 +44,10 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str | None = None
     STORAGE_BUCKET_NAME: str = "evidencias-anexos"
+    SUPABASE_URL: str | None = None
+    SUPABASE_KEY: str | None = Field(default=None, repr=False)
     cors_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ORIGINS")
-    JWT_SECRET_KEY: str | None = None
+    JWT_SECRET_KEY: str | None = Field(default=None, repr=False)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)
 

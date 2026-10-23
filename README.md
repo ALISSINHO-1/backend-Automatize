@@ -9,11 +9,11 @@ Backend FastAPI do projeto acadêmico Automatize. A API expõe documentação Op
 - `POST /auth/login` autentica usuários persistidos e emite JWT HS256 com `sub`, `iat` e `exp`.
 - `GET /demandas` e `GET /demandas/{id}` exigem Bearer e aplicam a política de acesso descrita abaixo.
 - `GET /health` retorna `{"status":"ok"}` sem consultar banco ou serviços externos.
-- A integração real com PostgreSQL ainda não foi validada. A inicialização prepara a engine, mas não confirma conectividade ou compatibilidade do esquema.
+- Em 23/10/2026, `alembic current` e `alembic check` confirmaram o banco em `fd3fe1dcfeab (head)` e sem diferenças de estrutura. A inspeção somente leitura confirmou PKs, FKs, constraints e índices declarados nas sete tabelas. A inicialização da API continua sem abrir conexão.
 
 ## Requisitos e instalação
 
-- Python 3.10 ou superior.
+- Python 3.14 ou superior (validação realizada com Python 3.14.7).
 - PostgreSQL para operações reais de persistência.
 
 No Windows/PowerShell, na raiz do repositório:
@@ -36,6 +36,8 @@ Edite o `.env` local e substitua os valores de exemplo. O comando de cópia pres
 | `JWT_ALGORITHM` | `HS256` | Único algoritmo habilitado. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Inteiro maior que zero | Prazo dos tokens; padrão `30`. |
 | `STORAGE_BUCKET_NAME` | Nome do bucket | Padrão `evidencias-anexos`. |
+| `SUPABASE_URL` | URL do projeto Supabase | Necessária apenas ao utilizar Storage. |
+| `SUPABASE_KEY` | Chave autorizada para o bucket | Necessária apenas ao utilizar Storage; nunca expor no frontend. |
 | `CORS_ORIGINS` | Lista JSON de origens | Padrão `[]`; não use `*` com credenciais habilitadas. |
 
 Gere uma chave localmente com:
@@ -72,7 +74,7 @@ No Swagger em `/docs`, execute `POST /auth/login`, copie o valor de `access_toke
 
 Usuário inexistente, senha incorreta, hash inválido ou conta inativa no login retornam `401` genérico e `WWW-Authenticate: Bearer`. Falhas de persistência não são convertidas em `401`. Corpo ausente ou campos inválidos retornam `422` sem incluir valores rejeitados.
 
-Bcrypt considera no máximo os primeiros 72 bytes da senha. O login e a geração de hash rejeitam entradas acima de 72 bytes UTF-8; não truncam, normalizam nem removem espaços. O limite é em bytes, não em caracteres. `requirements.txt` limita bcrypt a versões anteriores à 4.1 para compatibilidade com Passlib 1.7.4.
+Bcrypt considera no máximo os primeiros 72 bytes da senha. O login e a geração de hash rejeitam entradas acima de 72 bytes UTF-8; não truncam, normalizam nem removem espaços. O limite é em bytes, não em caracteres. `requirements.txt` fixa Passlib 1.7.4 e bcrypt 4.3.0, combinação validada com Python 3.14. O probe interno do Passlib é incompatível com bcrypt 5.0. A versão 4.3.0 ainda pode registrar o aviso de leitura de `bcrypt.__about__`; os testes de hash e login passam sem adaptar ou truncar senhas.
 
 ## Consultas de demandas
 
@@ -145,7 +147,7 @@ python -m uvicorn app.main:app --reload
 - OpenAPI: <http://127.0.0.1:8000/docs>
 - Saúde: <http://127.0.0.1:8000/health>
 
-No startup, a aplicação valida configuração e prepara a engine sem abrir conexão. Isso não valida a conectividade com PostgreSQL nem o esquema do banco. Para uma verificação manual de conexão com um banco escolhido, configure `.env` e execute `python test_db.py` (`SELECT 1`). Nenhuma validação de PostgreSQL real foi feita nesta entrega.
+No startup, a aplicação valida configuração e prepara a engine sem abrir conexão. Para uma verificação manual de conexão com um banco escolhido, configure `.env` e execute `python test_db.py` (`SELECT 1`). As verificações Alembic e de catálogo descritas acima não executaram alterações no banco.
 
 ## Testes
 
@@ -156,3 +158,29 @@ python -m pytest -q
 ```
 
 O frontend precisará tratar UUID como string, enviar o Bearer e usar uma URL base configurável para a API.
+
+## Usuário de demonstração
+
+O seed é um comando manual de desenvolvimento. Ele não roda no startup nem em migrations e não foi executado contra o banco durante a auditoria.
+
+Configure `DEMO_USER_NAME`, `DEMO_USER_EMAIL` e `DEMO_USER_PASSWORD` no ambiente ou no `.env` local, apontando `DATABASE_URL` para o banco de desenvolvimento escolhido. Não inclua credenciais reais em arquivos versionados nem em argumentos de linha de comando. Depois execute:
+
+```powershell
+python -m scripts.seed_demo_user
+```
+
+O comando usa `app.core.security.hash_password`, o mesmo mecanismo do login, cria somente um `CLIENTE` ativo e persiste apenas `senha_hash`. A senha deve conter de 1 a 72 bytes UTF-8. Se o e-mail já existir, preserva a conta, o perfil e a senha existentes. Também trata duas execuções concorrentes pela restrição UNIQUE de e-mail. Não reseta senha nem reativa uma conta existente.
+
+## Aceite formal e anexos
+
+`AprovacaoService(db).registrar_aceite(...)` exige UUIDs do pedido e do cliente autenticado, versão do entregável e declaração de aceite. Valida cliente ativo e proprietário, bloqueia o pedido com `FOR UPDATE` e exige `HOMOLOGACAO`. Persiste aceite, hash SHA-256 dos dados de evidência, histórico e auditoria, concluindo o pedido com 100% em um único commit. O hash não é uma assinatura digital. O método HML `homologar_entrega` foi preservado como adaptador e agora requer sessão e evidências explícitas.
+
+Ainda não há rota REST de aprovação ou de upload. Na futura rota, o cliente deve vir de `get_current_user`, e não ser confiado ao corpo da requisição. Os schemas HML de aprovação/pedido ainda contêm IDs inteiros e devem ser alinhados a UUID na integração das rotas; os contratos atuais de login e consulta de demandas foram preservados.
+
+O cliente Supabase é criado sob demanda na infraestrutura. `app/core/storage.py` preserva os imports antigos sem criar cliente ao importar o módulo. `AnexoService` controla upload, metadados e compensação quando a persistência falha; falha de refresh após commit não remove o arquivo já referenciado pelo banco. Os testes atuais usam Storage simulado e não realizam upload real.
+
+## SCRUM-39
+
+A listagem atual usa `GET /demandas` com Bearer, escopo por usuário e paginação. Para atualização periódica da interface, a abordagem inicial é polling no frontend, com intervalo alinhado à necessidade da apresentação, atualização ao voltar o foco e pausa em abas ocultas. Preserve filtros e paginação e trate expiração do token. Não foi implementado polling ou scheduler. SSE pode ser avaliado posteriormente caso seja necessário receber mudanças imediatamente.
+
+O relatório de auditoria e o estado das tarefas estão em `docs/backend-audit.md`.
