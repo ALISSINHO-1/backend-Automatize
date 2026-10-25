@@ -220,7 +220,7 @@ class AutomatizeDesktopApp(tk.Tk):
             DemandService.change_status(demanda_id, novo_status)
             self.carregar_demandas()
             messagebox.showinfo("Sucesso", f"Demanda #{demanda_id} transitou para {novo_status.value}!")
-        except TransicaoEstadoInvalidaException as erro:
+        except RegraNegocioException as erro:
             messagebox.showerror("Bloqueio de Regra", str(erro))
 
     def _acao_aprovar_homologacao(self):
@@ -267,10 +267,12 @@ class AutomatizeDesktopApp(tk.Tk):
             f"Deseja realmente excluir a demanda #{demanda_id}?"
         )
         if confirmar:
-            if demanda_id in DemandService._demandas:
-                del DemandService._demandas[demanda_id]
+            try:
+                DemandService.delete(demanda_id)
                 self.carregar_demandas()
                 messagebox.showinfo("Excluída", f"Demanda #{demanda_id} removida com sucesso.")
+            except RegraNegocioException as erro:
+                messagebox.showerror("Bloqueio de Regra", str(erro))
 
 
 if __name__ == "__main__":

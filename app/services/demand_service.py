@@ -1,11 +1,11 @@
-from datetime import datetime
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List
 from app.domain.enums import StatusDemandaEnum
-from app.domain.models.demanda import Demanda
+from app.domain.models.demanda import Demanda, RegistroAceite
 from app.core.exceptions import (
     RegraNegocioException,
     TransicaoEstadoInvalidaException,
-    AprovacaoNaoAutorizadaException
+    AprovacaoNaoAutorizadaException,
+    RegistroImutavelException
 )
 
 class DemandService:
@@ -85,6 +85,11 @@ class DemandService:
                 f"Transicao ilegal: nao e permitido transitar de {status_atual.value} para {novo_status.value}."
             )
 
+        if novo_status == StatusDemandaEnum.CONCLUIDO:
+            raise AprovacaoNaoAutorizadaException(
+                "A conclusao exige aceite formal do cliente. Utilize a aprovacao da homologacao."
+            )
+
         if status_atual == StatusDemandaEnum.HOMOLOGACAO and novo_status == StatusDemandaEnum.EXECUCAO:
             if not motivo_regresso or len(motivo_regresso.strip()) < 10:
                 raise TransicaoEstadoInvalidaException(
@@ -116,10 +121,9 @@ class DemandService:
         if not cliente_id or not cliente_id.strip():
             raise AprovacaoNaoAutorizadaException("A identificacao do cliente e obrigatoria para homologacao.")
 
+        demanda.registrar_aceite(RegistroAceite.criar(demanda.id, cliente_id.strip()))
         demanda.status = StatusDemandaEnum.CONCLUIDO
         demanda.percentual_progresso = cls.calculate_progress(StatusDemandaEnum.CONCLUIDO)
-        demanda.aprovado_por = cliente_id.strip()
-        demanda.data_aprovacao = datetime.now()
 
         demanda.adicionar_historico(
             acao="ACEITE_FORMAL_HOMOLOGACAO",
@@ -155,6 +159,19 @@ class DemandService:
             motivo=motivo_rejeicao.strip()
         )
         return demanda
+
+    @classmethod
+    def delete(cls, demanda_id: int) -> None:
+        demanda = cls._demandas.get(demanda_id)
+        if not demanda:
+            raise RegraNegocioException(f"Demanda #{demanda_id} nao encontrada.")
+
+        if demanda.status == StatusDemandaEnum.CONCLUIDO:
+            raise RegistroImutavelException(
+                "Demandas CONCLUIDAS possuem aceite formal e nao podem ser excluidas."
+            )
+
+        del cls._demandas[demanda_id]
 
     @classmethod
     def get_by_id(cls, demanda_id: int) -> Optional[Demanda]:

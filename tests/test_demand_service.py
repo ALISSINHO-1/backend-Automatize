@@ -1,10 +1,14 @@
+from dataclasses import FrozenInstanceError, replace
+
 import pytest
 from app.domain.enums import StatusDemandaEnum
 from app.core.exceptions import (
     RegraNegocioException,
     TransicaoEstadoInvalidaException,
-    AprovacaoNaoAutorizadaException
+    AprovacaoNaoAutorizadaException,
+    RegistroImutavelException
 )
+from app.domain.models.demanda import RegistroAceite
 from app.services.demand_service import DemandService
 
 @pytest.fixture(autouse=True)
@@ -73,3 +77,81 @@ def test_rejeicao_homologacao_sem_motivo_falha():
 
     with pytest.raises(TransicaoEstadoInvalidaException):
         DemandService.rejeitar_homologacao(demanda.id, motivo_rejeicao="Curto")
+
+def _demanda_em_homologacao():
+    demanda = DemandService.create("Ajuste", "Ajuste na base de dados", "cli_1")
+    DemandService.change_status(demanda.id, StatusDemandaEnum.EXECUCAO)
+    DemandService.change_status(demanda.id, StatusDemandaEnum.HOMOLOGACAO)
+    return demanda
+
+def test_conclusao_sem_aceite_formal_bloqueada():
+    demanda = _demanda_em_homologacao()
+    with pytest.raises(AprovacaoNaoAutorizadaException):
+        DemandService.change_status(demanda.id, StatusDemandaEnum.CONCLUIDO)
+    assert demanda.status == StatusDemandaEnum.HOMOLOGACAO
+    assert demanda.aceite is None
+
+def test_aceite_registra_cliente_data_hora_e_hash():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    aceite = demanda.aceite
+    assert aceite.cliente_id == "cliente_valente"
+    assert aceite.data_hora.tzinfo is not None
+    assert aceite.is_integro()
+
+def test_aceite_concluido_nao_pode_ser_alterado():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    with pytest.raises(FrozenInstanceError):
+        demanda.aceite.cliente_id = "outro_cliente"
+    with pytest.raises(AttributeError):
+        demanda.aprovado_por = "outro_cliente"
+    with pytest.raises(AttributeError):
+        demanda.data_aprovacao = None
+    with pytest.raises(RegistroImutavelException):
+        demanda.registrar_aceite(RegistroAceite.criar(demanda.id, "outro_cliente"))
+    assert demanda.aprovado_por == "cliente_valente"
+
+def test_aceite_nao_pode_ser_repetido_nem_rejeitado_apos_conclusao():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    with pytest.raises(AprovacaoNaoAutorizadaException):
+        DemandService.aprovar_homologacao(demanda.id, "outro_cliente")
+    with pytest.raises(TransicaoEstadoInvalidaException):
+        DemandService.rejeitar_homologacao(demanda.id, "Motivo longo o suficiente.")
+    assert demanda.aprovado_por == "cliente_valente"
+    assert demanda.status == StatusDemandaEnum.CONCLUIDO
+
+def test_historico_nao_pode_ser_editado_externamente():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    historico = demanda.historico_alteracoes
+    with pytest.raises(AttributeError):
+        historico.clear()
+    with pytest.raises(TypeError):
+        historico[-1]["motivo"] = "adulterado"
+    assert historico[-1]["acao"] == "ACEITE_FORMAL_HOMOLOGACAO"
+
+def test_hash_detecta_adulteracao_do_aceite():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    adulterado = replace(demanda.aceite, cliente_id="outro_cliente")
+    assert not adulterado.is_integro()
+
+def test_exclusao_de_demanda_concluida_bloqueada():
+    demanda = _demanda_em_homologacao()
+    DemandService.aprovar_homologacao(demanda.id, "cliente_valente")
+
+    with pytest.raises(RegistroImutavelException):
+        DemandService.delete(demanda.id)
+    assert DemandService.get_by_id(demanda.id) is demanda
+
+def test_exclusao_de_demanda_nao_concluida():
+    demanda = DemandService.create("Ajuste", "Ajuste na base de dados", "cli_1")
+    DemandService.delete(demanda.id)
+    assert DemandService.get_by_id(demanda.id) is None

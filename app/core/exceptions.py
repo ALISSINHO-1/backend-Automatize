@@ -14,3 +14,7 @@ class TransicaoEstadoInvalidaException(RegraNegocioException):
 class AprovacaoNaoAutorizadaException(RegraNegocioException):
     """Lancada quando a aprovacao formal nao cumpre os requisitos."""
     pass
+
+class RegistroImutavelException(RegraNegocioException):
+    """Lancada ao tentar alterar um aceite formal ja registrado."""
+    pass
