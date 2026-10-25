@@ -36,6 +36,28 @@ class RegistroAceite:
         return self.hash_validacao == self.gerar_hash(self.demanda_id, self.cliente_id, self.data_hora)
 
 
+@dataclass
+class EtapaOperacional:
+    """Etapa operacional da execucao que precisa ser concluida antes da homologacao."""
+
+    id: int
+    descricao: str
+    concluida: bool = False
+    concluida_em: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
+class Evidencia:
+    """Anexo ou captura de tela vinculado a demanda ou a uma ocorrencia."""
+
+    nome_arquivo: str
+    extensao: str
+    tamanho_bytes: int
+    enviado_por: str
+    enviado_em: datetime
+    ocorrencia_id: Optional[str] = None
+
+
 class Demanda:
 
     def __init__(
@@ -55,8 +77,34 @@ class Demanda:
         self.status = status
         self.percentual_progresso = percentual_progresso
         self.criado_em = criado_em or datetime.now()
+        self.responsavel_id: Optional[str] = None
         self._aceite: Optional[RegistroAceite] = None
         self._historico: List[Mapping[str, Any]] = []
+        self._etapas: List[EtapaOperacional] = []
+        self._evidencias: List[Evidencia] = []
+
+    @property
+    def etapas(self) -> Tuple[EtapaOperacional, ...]:
+        return tuple(self._etapas)
+
+    @property
+    def etapas_pendentes(self) -> Tuple[EtapaOperacional, ...]:
+        return tuple(etapa for etapa in self._etapas if not etapa.concluida)
+
+    @property
+    def evidencias(self) -> Tuple[Evidencia, ...]:
+        return tuple(self._evidencias)
+
+    def adicionar_etapa(self, descricao: str) -> EtapaOperacional:
+        etapa = EtapaOperacional(id=len(self._etapas) + 1, descricao=descricao)
+        self._etapas.append(etapa)
+        return etapa
+
+    def obter_etapa(self, etapa_id: int) -> Optional[EtapaOperacional]:
+        return next((etapa for etapa in self._etapas if etapa.id == etapa_id), None)
+
+    def adicionar_evidencia(self, evidencia: Evidencia):
+        self._evidencias.append(evidencia)
 
     @property
     def aceite(self) -> Optional[RegistroAceite]:
@@ -82,11 +130,21 @@ class Demanda:
             )
         self._aceite = aceite
 
-    def adicionar_historico(self, acao: str, status_anterior: str, novo_status: str, motivo: Optional[str] = None):
+    def adicionar_historico(
+        self,
+        acao: str,
+        status_anterior: str,
+        novo_status: str,
+        motivo: Optional[str] = None,
+        autor_id: Optional[str] = None,
+        detalhes: Optional[Mapping[str, Any]] = None
+    ):
         self._historico.append(MappingProxyType({
             "data_hora": datetime.now(timezone.utc),
             "acao": acao,
+            "autor_id": autor_id,
             "status_anterior": status_anterior,
             "novo_status": novo_status,
-            "motivo": motivo
+            "motivo": motivo,
+            "detalhes": MappingProxyType(dict(detalhes or {}))
         }))

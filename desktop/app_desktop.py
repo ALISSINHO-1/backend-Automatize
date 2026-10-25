@@ -16,9 +16,10 @@ from app.core.exceptions import (
 
 class NovaDemandaDialog(tk.Toplevel):
 
-    def __init__(self, parent, on_sucesso_callback):
+    def __init__(self, parent, on_sucesso_callback, demanda=None):
         super().__init__(parent)
-        self.title("Cadastrar Nova Demanda")
+        self.demanda = demanda
+        self.title("Editar Demanda" if demanda else "Cadastrar Nova Demanda")
         self.geometry("420x360")
         self.resizable(False, False)
         self.transient(parent)
@@ -27,6 +28,14 @@ class NovaDemandaDialog(tk.Toplevel):
         self.on_sucesso_callback = on_sucesso_callback
 
         self._construir_formulario()
+        if demanda:
+            self._preencher_formulario()
+
+    def _preencher_formulario(self):
+        self.entry_titulo.insert(0, self.demanda.titulo)
+        self.entry_cliente.insert(0, self.demanda.cliente_id)
+        self.entry_cliente.configure(state="disabled")
+        self.text_descricao.insert("1.0", self.demanda.descricao)
 
     def _construir_formulario(self):
         pad_opts = {"padx": 15, "pady": 6}
@@ -55,8 +64,12 @@ class NovaDemandaDialog(tk.Toplevel):
         descricao = self.text_descricao.get("1.0", "end-1c")
 
         try:
-            DemandService.create(titulo=titulo, descricao=descricao, cliente_id=cliente)
-            messagebox.showinfo("Sucesso", "Demanda cadastrada com sucesso!")
+            if self.demanda:
+                DemandService.update(self.demanda.id, titulo=titulo, descricao=descricao)
+                messagebox.showinfo("Sucesso", "Demanda atualizada com sucesso!")
+            else:
+                DemandService.create(titulo=titulo, descricao=descricao, cliente_id=cliente)
+                messagebox.showinfo("Sucesso", "Demanda cadastrada com sucesso!")
             self.on_sucesso_callback()
             self.destroy()
         except RegraNegocioException as erro:
@@ -159,6 +172,12 @@ class AutomatizeDesktopApp(tk.Tk):
             command=self._acao_excluir_demanda
         ).pack(side="right", padx=4)
 
+        ttk.Button(
+            bottom_bar,
+            text="Editar Demanda",
+            command=self._acao_editar_demanda
+        ).pack(side="right", padx=4)
+
     def _obter_id_selecionado(self):
         selecionado = self.tree.selection()
         if not selecionado:
@@ -202,6 +221,18 @@ class AutomatizeDesktopApp(tk.Tk):
 
     def _abrir_modal_cadastro(self):
         NovaDemandaDialog(self, on_sucesso_callback=self.carregar_demandas)
+
+    def _acao_editar_demanda(self):
+        demanda_id = self._obter_id_selecionado()
+        if not demanda_id:
+            return
+
+        demanda = DemandService.get_by_id(demanda_id)
+        if demanda.status == StatusDemandaEnum.CONCLUIDO:
+            messagebox.showinfo("Informação", "Demandas concluídas possuem aceite formal e não podem ser editadas.")
+            return
+
+        NovaDemandaDialog(self, on_sucesso_callback=self.carregar_demandas, demanda=demanda)
 
     def _acao_avancar_estado(self):
         demanda_id = self._obter_id_selecionado()
