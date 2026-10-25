@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session # type: ignore
 
+from app.core.exceptions import ArquivoInvalidoException
 from app.domain.models.anexo import Anexo
+from app.domain.models.auditoria_log import AuditoriaLog
+from app.domain.regras import arquivos
 from app.infrastructure.storage.supabase_storage import (
     StorageDeleteError,
     SupabaseStorage,
@@ -18,21 +21,14 @@ class AnexoNaoEncontradoError(Exception):
     pass
 
 
-class ArquivoInvalidoError(Exception):
-    pass
+# Mantido como alias: a validacao de conteudo e compartilhada com as evidencias.
+ArquivoInvalidoError = ArquivoInvalidoException
 
 
 class AnexoService:
-    EXTENSOES_PERMITIDAS = {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".doc",
-        ".docx",
-    }
+    EXTENSOES_PERMITIDAS = arquivos.EXTENSOES_PERMITIDAS
 
-    TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10 MB
+    TAMANHO_MAXIMO_BYTES = arquivos.TAMANHO_MAXIMO_BYTES
 
     def __init__(
         self,
@@ -70,31 +66,18 @@ class AnexoService:
         enviado_por_id: UUID,
         nome_arquivo: str,
         conteudo: bytes,
-        content_type: str,
+        content_type: str | None = None,
         ocorrencia_id: UUID | None = None,
     ) -> Anexo:
-        extensao = Path(nome_arquivo).suffix.lower()
-
-        if extensao not in self.EXTENSOES_PERMITIDAS:
-            raise ArquivoInvalidoError(
-                f"Extensão '{extensao}' não permitida."
-            )
-
-        if not conteudo:
-            raise ArquivoInvalidoError(
-                "O arquivo está vazio."
-            )
-
-        if len(conteudo) > self.TAMANHO_MAXIMO_BYTES:
-            raise ArquivoInvalidoError(
-                "O arquivo excede o limite de 10 MB."
-            )
+        # O content_type informado pelo cliente nao e confiavel; o Storage recebe
+        # o tipo detectado a partir do conteudo real.
+        arquivo = arquivos.validar_arquivo(nome_arquivo, conteudo)
 
         caminho_storage = self.storage.upload(
             pedido_id=pedido_id,
-            nome_arquivo=nome_arquivo,
+            nome_arquivo=arquivo.nome_arquivo,
             conteudo=conteudo,
-            content_type=content_type,
+            content_type=arquivo.content_type,
         )
 
         try:
@@ -103,11 +86,25 @@ class AnexoService:
                     "pedido_id": pedido_id,
                     "ocorrencia_id": ocorrencia_id,
                     "enviado_por_id": enviado_por_id,
-                    "nome_arquivo": nome_arquivo,
+                    "nome_arquivo": arquivo.nome_arquivo,
                     "caminho_storage": caminho_storage,
-                    "extensao": extensao.lstrip("."),
-                    "tamanho_bytes": len(conteudo),
+                    "extensao": arquivo.extensao,
+                    "tamanho_bytes": arquivo.tamanho_bytes,
                 }
+            )
+            self.db.add(
+                AuditoriaLog(
+                    usuario_id=enviado_por_id,
+                    pedido_id=pedido_id,
+                    acao="ENVIO_EVIDENCIA",
+                    detalhes={
+                        "anexo_id": str(anexo.id),
+                        "nome_arquivo": arquivo.nome_arquivo,
+                        "tamanho_bytes": arquivo.tamanho_bytes,
+                        "ocorrencia_id": str(ocorrencia_id) if ocorrencia_id else None,
+                    },
+                    created_at=datetime.now(timezone.utc),
+                )
             )
 
             self.db.commit()

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session # type: ignore
 
 from app.domain.enums import StatusPedidoEnum
 from app.domain.models.pedido import Pedido
+from app.domain.regras import ciclo_vida
 from app.repositories.historico_status_pedido_repository import (
     HistoricoStatusPedidoRepository,
 )
@@ -41,20 +42,13 @@ class PedidoService:
         )
 
     # ------------------------------------------------------------------
-    # Regras de ciclo de vida vindas da HML
+    # Regras de ciclo de vida (implementadas em app.domain.regras.ciclo_vida)
     # ------------------------------------------------------------------
 
     @classmethod
     def calcular_progresso(cls, status: StatusPedidoEnum) -> float:
-        """
-        Calcula o percentual de progresso de acordo com o status.
-
-        TODO:
-        A regra definitiva de percentual ainda precisa ser definida
-        pela equipe.
-        """
-        # Mantido conforme implementação atual da HML.
-        pass
+        """Percentual de progresso padrão do status (sem considerar etapas)."""
+        return float(ciclo_vida.calcular_progresso(status))
 
     @classmethod
     def validar_e_transitar(
@@ -64,14 +58,17 @@ class PedidoService:
         motivo_regresso: Optional[str] = None,
     ) -> float:
         """
-        Valida uma transição entre estados do pedido.
+        Valida uma transição pela máquina de estados e devolve o novo progresso.
 
-        TODO:
-        Implementar a máquina de estados estrita conforme as regras
-        de negócio definidas pela equipe.
+        A conclusão não é permitida aqui: ela exige aceite formal
+        (AprovacaoService / DemandService.aprovar_homologacao).
         """
-        # Mantido conforme implementação atual da HML.
-        pass
+        ciclo_vida.validar_transicao(
+            status_atual,
+            novo_status,
+            motivo_regresso=motivo_regresso,
+        )
+        return cls.calcular_progresso(novo_status)
 
     # ------------------------------------------------------------------
     # Consultas
