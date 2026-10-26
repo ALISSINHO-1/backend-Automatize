@@ -14,3 +14,19 @@ class TransicaoEstadoInvalidaException(RegraNegocioException):
 class AprovacaoNaoAutorizadaException(RegraNegocioException):
     """Lancada quando a aprovacao formal nao cumpre os requisitos."""
     pass
+
+class RegistroImutavelException(RegraNegocioException):
+    """Lancada ao tentar alterar um aceite formal ou uma demanda ja concluida."""
+    pass
+
+class AcessoNegadoException(RegraNegocioException):
+    """Lancada quando o usuario autenticado nao pode executar a operacao."""
+    pass
+
+class RecursoNaoEncontradoException(RegraNegocioException):
+    """Lancada quando a demanda, etapa ou usuario referenciado nao existe."""
+    pass
+
+class ArquivoInvalidoException(RegraNegocioException):
+    """Lancada quando o conteudo enviado nao corresponde a um formato aceito."""
+    pass

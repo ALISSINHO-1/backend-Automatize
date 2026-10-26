@@ -30,3 +30,4 @@ htmlcov/
 # Sistema operacional
 .DS_Store
 Thumbs.db
+.env

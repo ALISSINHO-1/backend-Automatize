@@ -7,7 +7,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import DefaultClause, MetaData, create_engine, event, text
+from sqlalchemy import JSON, DefaultClause, MetaData, create_engine, event, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from app.core.database import Base
@@ -26,10 +27,12 @@ def persistence_db():
         connection.create_function("gen_random_uuid", 0, lambda: uuid4().hex)
 
     metadata = MetaData()
-    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos"):
+    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos", "auditoria_logs"):
         table = Base.metadata.tables[name].to_metadata(metadata)
         # Adapt only PostgreSQL casts in this test's copied DDL, never models.
         for column in table.columns:
+            if isinstance(column.type, JSONB):
+                column.type = JSON()
             if column.server_default is not None and "::" in str(column.server_default.arg):
                 column.server_default = DefaultClause(text(str(column.server_default.arg).split("::")[0]))
     metadata.create_all(engine)

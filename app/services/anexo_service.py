@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session # type: ignore
 from sqlalchemy.exc import DBAPIError
 
+from app.core.exceptions import ArquivoInvalidoException
 from app.domain.models.anexo import Anexo
+from app.domain.models.auditoria_log import AuditoriaLog
+from app.domain.regras import arquivos
 from app.infrastructure.storage.file_validation import (
-    ArquivoInvalidoError,
+    ArquivoInvalidoError as ConteudoInvalidoError,
     MIME_POR_EXTENSAO,
     TAMANHO_MAXIMO_BYTES,
     validar_arquivo,
@@ -22,6 +26,10 @@ from app.repositories.anexo_repository import AnexoRepository
 
 class AnexoNaoEncontradoError(Exception):
     pass
+
+
+# Preserve the exception contract consumed by the evidence API.
+ArquivoInvalidoError = ArquivoInvalidoException
 
 
 class AnexoCompensacaoError(RuntimeError):
@@ -78,12 +86,20 @@ class AnexoService:
         enviado_por_id: UUID,
         nome_arquivo: str,
         conteudo: bytes,
-        content_type: str,
+        content_type: str | None = None,
         ocorrencia_id: UUID | None = None,
     ) -> Anexo:
         if not isinstance(pedido_id, UUID) or not isinstance(enviado_por_id, UUID):
             raise ValueError("pedido_id e enviado_por_id devem ser UUIDs.")
-        extensao, mime_detectado = validar_arquivo(nome_arquivo, conteudo, content_type)
+        try:
+            extensao, mime_detectado = validar_arquivo(nome_arquivo, conteudo, content_type)
+        except ConteudoInvalidoError as exc:
+            raise ArquivoInvalidoError(str(exc)) from None
+        # Keep HML's additional content policies (active PDF content and macros),
+        # after structural validation and resource limits. Legacy DOC attachments
+        # remain supported by the existing structural validator.
+        if extensao.lstrip(".") in arquivos.EXTENSOES_PERMITIDAS:
+            arquivos.validar_arquivo(nome_arquivo, conteudo)
 
         caminho_storage: str | None = None
         commit_iniciado = False
@@ -108,6 +124,20 @@ class AnexoService:
                     "extensao": extensao.lstrip("."),
                     "tamanho_bytes": len(conteudo),
                 }
+            )
+            self.db.add(
+                AuditoriaLog(
+                    usuario_id=enviado_por_id,
+                    pedido_id=pedido_id,
+                    acao="ENVIO_EVIDENCIA",
+                    detalhes={
+                        "anexo_id": str(anexo.id),
+                        "nome_arquivo": nome_arquivo,
+                        "tamanho_bytes": len(conteudo),
+                        "ocorrencia_id": str(ocorrencia_id) if ocorrencia_id else None,
+                    },
+                    created_at=datetime.now(timezone.utc),
+                )
             )
 
             commit_iniciado = True

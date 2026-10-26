@@ -10,7 +10,14 @@ import pytest # type: ignore
 from sqlalchemy.exc import IntegrityError # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
+from app.core.exceptions import (
+    AprovacaoNaoAutorizadaException,
+    RegistroImutavelException,
+    TransicaoEstadoInvalidaException,
+)
+from app.domain.models.etapa_operacional import EtapaOperacional
 from app.domain.models.pedido import Pedido
+from app.repositories.etapa_operacional_repository import EtapaOperacionalRepository
 from app.repositories.pedido_repository import PedidoRepository
 from app.schemas.pedido import PedidoCreate, PedidoUpdate
 from app.services.pedido_service import (
@@ -35,15 +42,24 @@ def historico_repository() -> MagicMock:
 
 
 @pytest.fixture
+def etapas_repository() -> MagicMock:
+    etapas = MagicMock(spec=EtapaOperacionalRepository)
+    etapas.get_by_pedido.return_value = []
+    return etapas
+
+
+@pytest.fixture
 def service(
     db_session: MagicMock,
     repository: MagicMock,
     historico_repository: MagicMock,
+    etapas_repository: MagicMock,
 ) -> PedidoService:
     return PedidoService(
         db=db_session,
         repository=repository,
         historico_repository=historico_repository,
+        etapas_repository=etapas_repository,
     )
 
 
@@ -524,3 +540,98 @@ def test_excluir_faz_rollback_em_erro(
 
     db_session.commit.assert_not_called()
     db_session.rollback.assert_called_once()
+
+
+# ----------------------------------------------------------------------
+# Regras de ciclo de vida na atualização
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("atual", "novo", "erro"),
+    [
+        (StatusPedidoEnum.PLANEAMENTO, StatusPedidoEnum.HOMOLOGACAO, TransicaoEstadoInvalidaException),
+        (StatusPedidoEnum.EXECUCAO, StatusPedidoEnum.PLANEAMENTO, TransicaoEstadoInvalidaException),
+        (StatusPedidoEnum.HOMOLOGACAO, StatusPedidoEnum.EXECUCAO, TransicaoEstadoInvalidaException),
+        (StatusPedidoEnum.HOMOLOGACAO, StatusPedidoEnum.CONCLUIDO, AprovacaoNaoAutorizadaException),
+    ],
+)
+def test_atualizar_status_respeita_maquina_de_estados(
+    service: PedidoService,
+    repository: MagicMock,
+    historico_repository: MagicMock,
+    db_session: MagicMock,
+    atual: StatusPedidoEnum,
+    novo: StatusPedidoEnum,
+    erro: type[Exception],
+) -> None:
+    pedido = criar_pedido()
+    pedido.status = atual
+    repository.get_by_id.return_value = pedido
+
+    with pytest.raises(erro):
+        service.atualizar(pedido.id, PedidoUpdate(status=novo), usuario_id=uuid4())
+
+    repository.update.assert_not_called()
+    historico_repository.create.assert_not_called()
+    db_session.commit.assert_not_called()
+    db_session.rollback.assert_called_once()
+
+
+def test_atualizar_bloqueia_homologacao_com_etapas_pendentes(
+    service: PedidoService,
+    repository: MagicMock,
+    etapas_repository: MagicMock,
+    db_session: MagicMock,
+) -> None:
+    pedido = criar_pedido()
+    pedido.status = StatusPedidoEnum.EXECUCAO
+    repository.get_by_id.return_value = pedido
+    etapas_repository.get_by_pedido.return_value = [
+        EtapaOperacional(descricao="Deploy", concluida=False),
+    ]
+
+    with pytest.raises(TransicaoEstadoInvalidaException, match="Deploy"):
+        service.atualizar(
+            pedido.id,
+            PedidoUpdate(status=StatusPedidoEnum.HOMOLOGACAO),
+            usuario_id=uuid4(),
+        )
+
+    repository.update.assert_not_called()
+    db_session.commit.assert_not_called()
+
+
+def test_atualizar_status_recalcula_progresso(
+    service: PedidoService,
+    repository: MagicMock,
+) -> None:
+    pedido = criar_pedido()
+    pedido.status = StatusPedidoEnum.PLANEAMENTO
+    repository.get_by_id.return_value = pedido
+    repository.update.return_value = pedido
+
+    service.atualizar(
+        pedido.id,
+        PedidoUpdate(status=StatusPedidoEnum.EXECUCAO, percentual_progresso=99),
+        usuario_id=uuid4(),
+    )
+
+    dados = repository.update.call_args.args[1]
+    assert dados["percentual_progresso"] == service.calcular_progresso(StatusPedidoEnum.EXECUCAO)
+
+
+def test_atualizar_pedido_concluido_e_bloqueado(
+    service: PedidoService,
+    repository: MagicMock,
+    db_session: MagicMock,
+) -> None:
+    pedido = criar_pedido()
+    pedido.status = StatusPedidoEnum.CONCLUIDO
+    repository.get_by_id.return_value = pedido
+
+    with pytest.raises(RegistroImutavelException):
+        service.atualizar(pedido.id, PedidoUpdate(titulo="Novo titulo"))
+
+    repository.update.assert_not_called()
+    db_session.commit.assert_not_called()
