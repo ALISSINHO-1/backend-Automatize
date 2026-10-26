@@ -26,9 +26,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     output = StringIO()
     config = alembic_config(output_buffer=output)
     revisions = ScriptDirectory.from_config(config)
-    assert revisions.get_heads() == ["3c9e7a1b5d20"]
+    assert revisions.get_heads() == ["7b2d4e6f8a10"]
     assert [item.revision for item in revisions.walk_revisions()] == [
-        "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
+        "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
     ]
     command.upgrade(config, "head", sql=True)
     sql = output.getvalue()
@@ -48,6 +48,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     assert "UNIQUE (pedido_id)" in sql
     assert "CREATE TRIGGER trg_aceites_formais_imutavel" in sql
     assert "CREATE TRIGGER trg_pedidos_protege_conclusao" in sql
+    # Sem RLS o Supabase deixa a tabela aberta pela Data API (chave publica).
+    for table in set(tables):
+        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
 
 
 def test_foreign_keys_and_delete_policies_preserve_business_records():
