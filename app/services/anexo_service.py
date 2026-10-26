@@ -5,11 +5,18 @@ from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session # type: ignore
+from sqlalchemy.exc import DBAPIError
 
 from app.core.exceptions import ArquivoInvalidoException
 from app.domain.models.anexo import Anexo
 from app.domain.models.auditoria_log import AuditoriaLog
 from app.domain.regras import arquivos
+from app.infrastructure.storage.file_validation import (
+    ArquivoInvalidoError as ConteudoInvalidoError,
+    MIME_POR_EXTENSAO,
+    TAMANHO_MAXIMO_BYTES,
+    validar_arquivo,
+)
 from app.infrastructure.storage.supabase_storage import (
     StorageDeleteError,
     SupabaseStorage,
@@ -21,14 +28,27 @@ class AnexoNaoEncontradoError(Exception):
     pass
 
 
-# Mantido como alias: a validacao de conteudo e compartilhada com as evidencias.
+# Preserve the exception contract consumed by the evidence API.
 ArquivoInvalidoError = ArquivoInvalidoException
 
 
-class AnexoService:
-    EXTENSOES_PERMITIDAS = arquivos.EXTENSOES_PERMITIDAS
+class AnexoCompensacaoError(RuntimeError):
+    """A failed write also needs operational cleanup; do not hide that failure."""
 
-    TAMANHO_MAXIMO_BYTES = arquivos.TAMANHO_MAXIMO_BYTES
+    def __init__(self, caminho_storage: str) -> None:
+        self.caminho_storage = caminho_storage
+        super().__init__("Falha ao compensar anexo; reconciliação do Storage necessária.")
+
+
+class AnexoCommitIncertoError(RuntimeError):
+    def __init__(self, caminho_storage: str) -> None:
+        self.caminho_storage = caminho_storage
+        super().__init__("Confirmação de commit indisponível; reconciliação do anexo necessária.")
+
+
+class AnexoService:
+    EXTENSOES_PERMITIDAS = set(MIME_POR_EXTENSAO)
+    TAMANHO_MAXIMO_BYTES = TAMANHO_MAXIMO_BYTES
 
     def __init__(
         self,
@@ -69,27 +89,40 @@ class AnexoService:
         content_type: str | None = None,
         ocorrencia_id: UUID | None = None,
     ) -> Anexo:
-        # O content_type informado pelo cliente nao e confiavel; o Storage recebe
-        # o tipo detectado a partir do conteudo real.
-        arquivo = arquivos.validar_arquivo(nome_arquivo, conteudo)
-
-        caminho_storage = self.storage.upload(
-            pedido_id=pedido_id,
-            nome_arquivo=arquivo.nome_arquivo,
-            conteudo=conteudo,
-            content_type=arquivo.content_type,
-        )
-
+        if not isinstance(pedido_id, UUID) or not isinstance(enviado_por_id, UUID):
+            raise ValueError("pedido_id e enviado_por_id devem ser UUIDs.")
         try:
+            extensao, mime_detectado = validar_arquivo(nome_arquivo, conteudo, content_type)
+        except ConteudoInvalidoError as exc:
+            raise ArquivoInvalidoError(str(exc)) from None
+        # Keep HML's additional content policies (active PDF content and macros),
+        # after structural validation and resource limits. Legacy DOC attachments
+        # remain supported by the existing structural validator.
+        if extensao.lstrip(".") in arquivos.EXTENSOES_PERMITIDAS:
+            arquivos.validar_arquivo(nome_arquivo, conteudo)
+
+        caminho_storage: str | None = None
+        commit_iniciado = False
+        try:
+            if ocorrencia_id is not None:
+                self.repository.validar_ocorrencia_do_pedido(
+                    pedido_id=pedido_id, ocorrencia_id=ocorrencia_id,
+                )
+            caminho_storage = self.storage.upload(
+                pedido_id=pedido_id,
+                nome_arquivo=nome_arquivo,
+                conteudo=conteudo,
+                content_type=mime_detectado,
+            )
             anexo = self.repository.create(
                 {
                     "pedido_id": pedido_id,
                     "ocorrencia_id": ocorrencia_id,
                     "enviado_por_id": enviado_por_id,
-                    "nome_arquivo": arquivo.nome_arquivo,
+                    "nome_arquivo": nome_arquivo,
                     "caminho_storage": caminho_storage,
-                    "extensao": arquivo.extensao,
-                    "tamanho_bytes": arquivo.tamanho_bytes,
+                    "extensao": extensao.lstrip("."),
+                    "tamanho_bytes": len(conteudo),
                 }
             )
             self.db.add(
@@ -99,25 +132,32 @@ class AnexoService:
                     acao="ENVIO_EVIDENCIA",
                     detalhes={
                         "anexo_id": str(anexo.id),
-                        "nome_arquivo": arquivo.nome_arquivo,
-                        "tamanho_bytes": arquivo.tamanho_bytes,
+                        "nome_arquivo": nome_arquivo,
+                        "tamanho_bytes": len(conteudo),
                         "ocorrencia_id": str(ocorrencia_id) if ocorrencia_id else None,
                     },
                     created_at=datetime.now(timezone.utc),
                 )
             )
 
+            commit_iniciado = True
             self.db.commit()
 
-        except Exception:
-            self.db.rollback()
-
-            # Compensação: evita arquivo órfão caso o banco falhe.
+        except Exception as exc:
+            commit_incerto = commit_iniciado and isinstance(exc, DBAPIError) and exc.connection_invalidated
             try:
-                self.storage.delete(caminho_storage)
-            except StorageDeleteError:
-                pass
-
+                self.db.rollback()
+            finally:
+                # Cleanup must still run when rollback itself fails.
+                if caminho_storage is not None:
+                    # A lost connection while committing does not prove that
+                    # metadata was rolled back. Preserve the object for review.
+                    if commit_incerto:
+                        raise AnexoCommitIncertoError(caminho_storage) from None
+                    try:
+                        self.storage.delete(caminho_storage)
+                    except StorageDeleteError:
+                        raise AnexoCompensacaoError(caminho_storage) from None
             raise
 
         # A refresh failure after commit cannot undo persisted metadata. Keep

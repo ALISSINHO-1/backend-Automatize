@@ -23,6 +23,21 @@ class PedidoRepository(BaseRepository[Pedido]):
     def __init__(self, db: Session) -> None:
         super().__init__(Pedido, db)
 
+    protected_fields = BaseRepository.protected_fields | frozenset({"cliente_id"})
+
+    def get_by_id_for_cliente(self, pedido_id: UUID, *, cliente_id: UUID) -> Pedido | None:
+        self._require_uuid(cliente_id)
+        return self.get_by_id_for_access_scope(pedido_id, cliente_id=cliente_id)
+
+    def get_by_id_for_responsavel(self, pedido_id: UUID, *, responsavel_id: UUID) -> Pedido | None:
+        self._require_uuid(responsavel_id)
+        return self.get_by_id_for_access_scope(pedido_id, responsavel_id=responsavel_id)
+
+    @staticmethod
+    def _require_uuid(value: UUID) -> None:
+        if not isinstance(value, UUID):
+            raise ValueError("O identificador de escopo deve ser UUID.")
+
     def get_by_codigo(
         self,
         codigo: str,
@@ -51,6 +66,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         self,
         cliente_id: UUID,
     ) -> Sequence[Pedido]:
+        self._require_uuid(cliente_id)
         stmt = (
             select(Pedido)
             .where(
@@ -83,6 +99,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         self,
         responsavel_id: UUID,
     ) -> Sequence[Pedido]:
+        self._require_uuid(responsavel_id)
         stmt = (
             select(Pedido)
             .where(

@@ -1,8 +1,9 @@
 """Arquivos mínimos válidos de cada formato aceito, para os testes."""
 import io
 import struct
-import zipfile
 import zlib
+
+from tests import attachment_samples
 
 
 def png() -> bytes:
@@ -19,23 +20,26 @@ def png() -> bytes:
 
 
 def jpeg() -> bytes:
-    return b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9"
+    return attachment_samples.jpeg()
 
 
 def pdf(corpo: bytes = b"") -> bytes:
-    return (
-        b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
-        b"2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\n"
-        + corpo
-        + b"\ntrailer << /Root 1 0 R >>\n%%EOF\n"
-    )
+    if not corpo:
+        return attachment_samples.pdf()
+    # A valid stream carries the raw PDF tokens used by the active-content
+    # rejection tests, without breaking object offsets or the xref table.
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+    buffer = io.BytesIO()
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=100, height=100)
+    stream = DecodedStreamObject()
+    stream.set_data(corpo)
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    writer.write(buffer)
+    return buffer.getvalue()
 
 
 def docx(*, com_macro: bool = False) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as pacote:
-        pacote.writestr("[Content_Types].xml", "<Types/>")
-        pacote.writestr("word/document.xml", "<document/>")
-        if com_macro:
-            pacote.writestr("word/vbaProject.bin", b"\x00" * 16)
-    return buffer.getvalue()
+    extra = {"word/vbaProject.bin": b"\x00" * 16} if com_macro else None
+    return attachment_samples.docx(extra)

@@ -97,8 +97,44 @@ def test_injected_settings_create_engine_without_connecting() -> None:
         assert engine.url.drivername == "postgresql+psycopg2"
         assert engine.url.host == "db.example"
         assert engine.pool._pre_ping is True
+        assert engine.hide_parameters is True
     finally:
         engine.dispose()
+
+
+def test_database_url_is_hidden_from_settings_representation():
+    configured = settings(DATABASE_URL="postgresql://private-user:private-password@localhost/db")
+    assert "private-password" not in repr(configured)
+    assert "private-user" not in repr(configured)
+
+
+def test_remote_database_uses_tls_by_default_without_exposing_url():
+    from sqlalchemy.engine import make_url
+    configured = settings(DATABASE_URL="postgresql://unit:private@db.example/app")
+    assert make_url(configured.validate_database_configuration()).query["sslmode"] == "require"
+
+
+@pytest.mark.parametrize("sslmode", ["disable", "allow", "prefer", "invalid"])
+def test_remote_database_rejects_plaintext_fallback(sslmode):
+    configured = settings(DATABASE_URL=f"postgresql://unit:private@db.example/app?sslmode={sslmode}")
+    with pytest.raises(ValueError) as error:
+        configured.validate_database_configuration()
+    assert "private" not in str(error.value)
+
+
+@pytest.mark.parametrize("sslmode", ["require", "verify-ca", "verify-full"])
+def test_explicit_secure_tls_configuration_is_preserved(sslmode):
+    from sqlalchemy.engine import make_url
+    url = f"postgresql://unit:private@db.example/app?sslmode={sslmode}"
+    checked = make_url(settings(DATABASE_URL=url).validate_database_configuration())
+    assert checked.query["sslmode"] == sslmode
+    assert checked.query["gssencmode"] == "disable"
+    assert checked.host == "db.example"
+
+
+def test_local_development_database_does_not_require_tls():
+    url = "postgresql://unit:private@localhost/app"
+    assert settings(DATABASE_URL=url).validate_database_configuration() == url
 
 
 def request_with_factory(factory) -> Request:

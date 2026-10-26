@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Generic, Mapping, Sequence, TypeVar
 from uuid import UUID
 
-from sqlalchemy import select # type: ignore
+from sqlalchemy import Uuid, inspect, select # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
 from app.core.database import Base
@@ -47,6 +47,8 @@ class BaseRepository(Generic[ModelType]):
         self,
         entity_id: UUID,
     ) -> ModelType | None:
+        if not isinstance(entity_id, UUID):
+            raise ValueError("O identificador deve ser UUID.")
         return self.db.get(
             self.model,
             entity_id,
@@ -70,6 +72,12 @@ class BaseRepository(Generic[ModelType]):
         self,
         data: Mapping[str, Any],
     ) -> ModelType:
+        self._validate_columns(data)
+        # Services may supply an evidence UUID (e.g. formal acceptance). Keep
+        # that contract, while rejecting server timestamps and non-column data.
+        internal = set(data) & {"created_at", "updated_at"}
+        if internal:
+            raise ValueError("Não é permitido definir campos internos na criação.")
         entity = self.model(**data)
 
         self.db.add(entity)
@@ -100,15 +108,9 @@ class BaseRepository(Generic[ModelType]):
                 f"campos protegidos: {fields}"
             )
 
-        # Impede campos que não existem no model.
+        # Validate the entire mapping before changing any in-memory state.
+        self._validate_columns(data)
         for field, value in data.items():
-
-            if not hasattr(entity, field):
-                raise ValueError(
-                    f"Campo '{field}' não existe "
-                    f"em {self.model.__name__}."
-                )
-
             setattr(
                 entity,
                 field,
@@ -119,6 +121,14 @@ class BaseRepository(Generic[ModelType]):
         self.db.refresh(entity)
 
         return entity
+
+    def _validate_columns(self, data: Mapping[str, Any]) -> None:
+        columns = inspect(self.model).columns
+        if any(field not in columns.keys() for field in data):
+            raise ValueError(f"Campo não existe nas colunas de {self.model.__name__}.")
+        for field, value in data.items():
+            if isinstance(columns[field].type, Uuid) and value is not None and not isinstance(value, UUID):
+                raise ValueError("Identificadores de persistência devem ser UUIDs.")
 
     def delete(
         self,
