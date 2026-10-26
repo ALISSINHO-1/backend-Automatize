@@ -56,6 +56,8 @@ def demanda(service, atores):
 
 def _em_homologacao(service, atores, pedido):
     service.alterar_status(atores["tecnico"], pedido.id, Status.EXECUCAO)
+    etapa = service.adicionar_etapa(atores["tecnico"], pedido.id, descricao="Executar servico")
+    service.concluir_etapa(atores["tecnico"], pedido.id, etapa.id)
     service.alterar_status(atores["tecnico"], pedido.id, Status.HOMOLOGACAO)
     return pedido
 
@@ -276,6 +278,53 @@ def test_etapa_de_outra_demanda_nao_pode_ser_concluida(service, atores, demanda)
 
     with pytest.raises(RecursoNaoEncontradoException):
         service.concluir_etapa(atores["tecnico"], demanda.id, etapa_outra.id)
+
+
+def test_homologacao_sem_etapas_bloqueada_no_service_e_no_pedido_service(db, service, atores, demanda):
+    service.alterar_status(atores["tecnico"], demanda.id, Status.EXECUCAO)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        service.alterar_status(atores["tecnico"], demanda.id, Status.HOMOLOGACAO)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        PedidoService(db).atualizar(demanda.id, PedidoUpdate(status=Status.HOMOLOGACAO),
+                                    usuario_id=atores["admin"].id)
+    assert _recarregar(db, demanda).status == Status.EXECUCAO
+    assert _contar(db, HistoricoStatusPedido, pedido_id=demanda.id) == 1
+
+
+def test_pedido_service_segue_a_mesma_maquina_de_estados(db, service, atores, demanda):
+    pedidos = PedidoService(db)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="Transicao ilegal"):
+        pedidos.atualizar(demanda.id, PedidoUpdate(status=Status.HOMOLOGACAO), usuario_id=atores["admin"].id)
+
+    pedidos.atualizar(demanda.id, PedidoUpdate(status=Status.EXECUCAO), usuario_id=atores["admin"].id)
+    etapa = service.adicionar_etapa(atores["tecnico"], demanda.id, descricao="Executar servico")
+    service.concluir_etapa(atores["tecnico"], demanda.id, etapa.id)
+    salvo = pedidos.atualizar(demanda.id, PedidoUpdate(status=Status.HOMOLOGACAO), usuario_id=atores["admin"].id)
+    assert (salvo.status, salvo.percentual_progresso) == (Status.HOMOLOGACAO, Decimal("85.00"))
+
+    with pytest.raises(TransicaoEstadoInvalidaException, match="rejeicao do cliente"):
+        pedidos.atualizar(demanda.id, PedidoUpdate(status=Status.EXECUCAO), usuario_id=atores["admin"].id)
+    with pytest.raises(AprovacaoNaoAutorizadaException, match="aceite formal"):
+        pedidos.atualizar(demanda.id, PedidoUpdate(status=Status.CONCLUIDO), usuario_id=atores["admin"].id)
+    assert _recarregar(db, demanda).status == Status.HOMOLOGACAO
+
+
+def test_linha_do_tempo_de_estados_com_autores(service, atores, demanda):
+    service.alterar_status(atores["tecnico"], demanda.id, Status.EXECUCAO)
+    etapa = service.adicionar_etapa(atores["tecnico"], demanda.id, descricao="Executar servico")
+    service.concluir_etapa(atores["tecnico"], demanda.id, etapa.id)
+    service.alterar_status(atores["admin"], demanda.id, Status.HOMOLOGACAO)
+    service.rejeitar_homologacao(atores["cliente"], demanda.id, motivo="Layout divergente do aprovado")
+
+    eventos = service.listar_estados(atores["cliente"], demanda.id)
+    assert [(e["estado_anterior"], e["novo_estado"], e["usuario_responsavel"]) for e in eventos] == [
+        (None, Status.PLANEAMENTO, atores["cliente"].nome),
+        (Status.PLANEAMENTO, Status.EXECUCAO, atores["tecnico"].nome),
+        (Status.EXECUCAO, Status.HOMOLOGACAO, atores["admin"].nome),
+        (Status.HOMOLOGACAO, Status.EXECUCAO, atores["cliente"].nome),
+    ]
+    with pytest.raises(RecursoNaoEncontradoException):
+        service.listar_estados(atores["outro_cliente"], demanda.id)
 
 
 # ----------------------------------------------------------------------

@@ -96,6 +96,42 @@ class DemandService:
         pedido = self.obter(usuario, pedido_id)
         return self.auditoria.get_by_pedido(pedido.id)
 
+    def listar_estados(self, usuario: User, pedido_id: UUID) -> list[dict[str, Any]]:
+        """Linha do tempo dos estados no formato do HistoricoEstadoModel do frontend:
+        a criacao (estado_anterior nulo) seguida de cada transicao, com o nome do autor."""
+        pedido = self.obter(usuario, pedido_id)
+        eventos: list[dict[str, Any]] = []
+
+        criacao = self.db.execute(
+            select(AuditoriaLog.created_at, User.nome)
+            .join(User, User.id == AuditoriaLog.usuario_id)
+            .where(AuditoriaLog.pedido_id == pedido.id, AuditoriaLog.acao == "CRIACAO_DEMANDA")
+            .order_by(AuditoriaLog.created_at)
+            .limit(1)
+        ).first()
+        if criacao is not None:
+            eventos.append({
+                "estado_anterior": None,
+                "novo_estado": StatusPedidoEnum.PLANEAMENTO,
+                "usuario_responsavel": criacao.nome,
+                "timestamp": criacao.created_at,
+            })
+
+        transicoes = self.db.execute(
+            select(HistoricoStatusPedido, User.nome)
+            .join(User, User.id == HistoricoStatusPedido.usuario_id)
+            .where(HistoricoStatusPedido.pedido_id == pedido.id)
+            .order_by(HistoricoStatusPedido.created_at, HistoricoStatusPedido.id)
+        )
+        for historico, nome in transicoes:
+            eventos.append({
+                "estado_anterior": historico.status_anterior,
+                "novo_estado": historico.status_novo,
+                "usuario_responsavel": nome,
+                "timestamp": historico.created_at,
+            })
+        return eventos
+
     # ------------------------------------------------------------------
     # Cadastro e edicao (SCRUM-20)
     # ------------------------------------------------------------------
@@ -192,6 +228,7 @@ class DemandService:
             ciclo_vida.validar_transicao(
                 status_atual,
                 novo_status,
+                total_etapas=len(etapas),
                 etapas_pendentes=tuple(etapa.descricao for etapa in etapas if not etapa.concluida),
             )
 
