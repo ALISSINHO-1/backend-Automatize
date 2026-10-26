@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session # type: ignore
 from app.domain.models.anexo import Anexo
 from app.infrastructure.storage.supabase_storage import SupabaseStorage
 from app.repositories.anexo_repository import AnexoRepository
+from tests import amostras
 from app.services.anexo_service import (
     AnexoNaoEncontradoError,
     AnexoService,
@@ -105,7 +106,7 @@ def test_criar_anexo_faz_upload_e_commit(
     pedido_id = uuid4()
     usuario_id = uuid4()
 
-    conteudo = b"arquivo de teste"
+    conteudo = amostras.pdf()
 
     storage.upload.return_value = (
         f"pedidos/{pedido_id}/arquivo.pdf"
@@ -226,7 +227,7 @@ def test_criar_faz_rollback_e_remove_storage_se_banco_falhar(
             pedido_id=pedido_id,
             enviado_por_id=uuid4(),
             nome_arquivo="arquivo.pdf",
-            conteudo=b"teste",
+            conteudo=amostras.pdf(),
             content_type="application/pdf",
         )
 
@@ -241,7 +242,7 @@ def test_refresh_failure_after_commit_keeps_storage_object(service, repository, 
     with pytest.raises(RuntimeError, match="refresh failed"):
         service.criar(
             pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
-            conteudo=b"teste", content_type="application/pdf",
+            conteudo=amostras.pdf(), content_type="application/pdf",
         )
     db_session.commit.assert_called_once()
     db_session.rollback.assert_not_called()
@@ -255,7 +256,53 @@ def test_commit_failure_rolls_back_and_removes_uploaded_object(service, reposito
     with pytest.raises(RuntimeError, match="commit failed"):
         service.criar(
             pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
-            conteudo=b"teste", content_type="application/pdf",
+            conteudo=amostras.pdf(), content_type="application/pdf",
         )
     db_session.rollback.assert_called_once()
     storage.delete.assert_called_once_with("pedidos/teste/arquivo.pdf")
+
+
+def test_criar_recusa_conteudo_que_nao_corresponde_a_extensao(
+    service: AnexoService,
+    repository: MagicMock,
+    storage: MagicMock,
+) -> None:
+    with pytest.raises(ArquivoInvalidoError, match="não corresponde"):
+        service.criar(
+            pedido_id=uuid4(),
+            enviado_por_id=uuid4(),
+            nome_arquivo="foto.png",
+            conteudo=b"MZ\x90\x00 executavel renomeado",
+            content_type="image/png",
+        )
+
+    storage.upload.assert_not_called()
+    repository.create.assert_not_called()
+
+
+def test_criar_usa_content_type_detectado_e_audita_envio(
+    service: AnexoService,
+    repository: MagicMock,
+    storage: MagicMock,
+    db_session: MagicMock,
+) -> None:
+    pedido_id = uuid4()
+    usuario_id = uuid4()
+    storage.upload.return_value = f"pedidos/{pedido_id}/foto.png"
+    repository.create.return_value = criar_anexo()
+
+    service.criar(
+        pedido_id=pedido_id,
+        enviado_por_id=usuario_id,
+        nome_arquivo=r"C:\fotos\foto.png",
+        conteudo=amostras.png(),
+        content_type="application/x-msdownload",
+    )
+
+    upload = storage.upload.call_args.kwargs
+    assert upload["content_type"] == "image/png"
+    assert upload["nome_arquivo"] == "foto.png"
+    auditoria = db_session.add.call_args.args[0]
+    assert auditoria.acao == "ENVIO_EVIDENCIA"
+    assert auditoria.usuario_id == usuario_id
+    assert auditoria.pedido_id == pedido_id

@@ -26,9 +26,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     output = StringIO()
     config = alembic_config(output_buffer=output)
     revisions = ScriptDirectory.from_config(config)
-    assert revisions.get_heads() == ["fd3fe1dcfeab"]
+    assert revisions.get_heads() == ["7b2d4e6f8a10"]
     assert [item.revision for item in revisions.walk_revisions()] == [
-        "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
+        "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
     ]
     command.upgrade(config, "head", sql=True)
     sql = output.getvalue()
@@ -44,6 +44,13 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     assert "CHECK (percentual_progresso >= 0 AND percentual_progresso <= 100)" in sql
     assert "CREATE INDEX ix_historico_status_pedidos_pedido_id" in sql
     assert "CREATE INDEX ix_historico_status_pedidos_usuario_id" in sql
+    assert "CREATE INDEX ix_etapas_operacionais_pedido_id" in sql
+    assert "UNIQUE (pedido_id)" in sql
+    assert "CREATE TRIGGER trg_aceites_formais_imutavel" in sql
+    assert "CREATE TRIGGER trg_pedidos_protege_conclusao" in sql
+    # Sem RLS o Supabase deixa a tabela aberta pela Data API (chave publica).
+    for table in set(tables):
+        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
 
 
 def test_foreign_keys_and_delete_policies_preserve_business_records():
@@ -61,6 +68,9 @@ def test_foreign_keys_and_delete_policies_preserve_business_records():
         ("auditoria_logs", "pedido_id"): ("pedidos.id", "SET NULL"),
         ("historico_status_pedidos", "pedido_id"): ("pedidos.id", "CASCADE"),
         ("historico_status_pedidos", "usuario_id"): ("users.id", None),
+        ("etapas_operacionais", "pedido_id"): ("pedidos.id", "CASCADE"),
+        ("etapas_operacionais", "concluida_por_id"): ("users.id", None),
+        ("etapas_operacionais", "criado_por_id"): ("users.id", None),
     }
     actual = {}
     for name, table in Base.metadata.tables.items():
@@ -71,7 +81,11 @@ def test_foreign_keys_and_delete_policies_preserve_business_records():
             if fk.ondelete == "SET NULL":
                 assert fk.parent.nullable
     assert actual == expected
-    for table, column in (("users", "email"), ("pedidos", "codigo_identificador")):
+    for table, column in (
+        ("users", "email"),
+        ("pedidos", "codigo_identificador"),
+        ("aceites_formais", "pedido_id"),
+    ):
         assert any(isinstance(item, UniqueConstraint) and list(item.columns.keys()) == [column]
                    for item in Base.metadata.tables[table].constraints)
     assert any(isinstance(item, CheckConstraint) and item.name == "pedidos_percentual_progresso_check"

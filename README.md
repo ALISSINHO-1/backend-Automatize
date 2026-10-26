@@ -8,6 +8,7 @@ Backend FastAPI do projeto acadêmico Automatize. A API expõe documentação Op
 - Configurações centralizadas em `app/core/config.py`; engine e fábrica de sessões são preparadas no startup.
 - `POST /auth/login` autentica usuários persistidos e emite JWT HS256 com `sub`, `iat` e `exp`.
 - `GET /demandas` e `GET /demandas/{id}` exigem Bearer e aplicam a política de acesso descrita abaixo.
+- Rotas de escrita de demandas (cadastro, ciclo de vida, etapas, aceite, rejeição, evidências e histórico) usam o usuário do token; veja "Regras de negócio e rotas de escrita".
 - `GET /health` retorna `{"status":"ok"}` sem consultar banco ou serviços externos.
 - Em 23/10/2026, `alembic current` e `alembic check` confirmaram o banco em `fd3fe1dcfeab (head)` e sem diferenças de estrutura. A inspeção somente leitura confirmou PKs, FKs, constraints e índices declarados nas sete tabelas. A inicialização da API continua sem abrir conexão.
 
@@ -157,6 +158,13 @@ Os testes unitários usam Settings explícitas e simulam persistência, sem depe
 python -m pytest -q
 ```
 
+Os testes de integração (`tests/integration`) rodam contra um PostgreSQL real: aplicam as migrations, inclusive as triggers, e cada teste é desfeito ao final. Eles são ignorados quando `TEST_DATABASE_URL` não está definida. Use um banco descartável cujo nome contenha `test`, nunca o banco compartilhado:
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql+psycopg2://postgres:senha@localhost:5432/automatize_test"
+python -m pytest -q
+```
+
 O frontend precisará tratar UUID como string, enviar o Bearer e usar uma URL base configurável para a API.
 
 ## Usuário de demonstração
@@ -175,7 +183,30 @@ O comando usa `app.core.security.hash_password`, o mesmo mecanismo do login, cri
 
 `AprovacaoService(db).registrar_aceite(...)` exige UUIDs do pedido e do cliente autenticado, versão do entregável e declaração de aceite. Valida cliente ativo e proprietário, bloqueia o pedido com `FOR UPDATE` e exige `HOMOLOGACAO`. Persiste aceite, hash SHA-256 dos dados de evidência, histórico e auditoria, concluindo o pedido com 100% em um único commit. O hash não é uma assinatura digital. O método HML `homologar_entrega` foi preservado como adaptador e agora requer sessão e evidências explícitas.
 
-Ainda não há rota REST de aprovação ou de upload. Na futura rota, o cliente deve vir de `get_current_user`, e não ser confiado ao corpo da requisição. Os schemas HML de aprovação/pedido ainda contêm IDs inteiros e devem ser alinhados a UUID na integração das rotas; os contratos atuais de login e consulta de demandas foram preservados.
+As rotas de aprovação e de upload estão descritas em "Regras de negócio e rotas de escrita": o cliente vem de `get_current_user`, nunca do corpo da requisição. O schema de aprovação foi alinhado a UUID; os contratos atuais de login e consulta de demandas foram preservados.
+
+## Regras de negócio e rotas de escrita
+
+`DemandService(db)` (`app/services/demand_service.py`) aplica as regras do ciclo de vida sobre o `Pedido` persistido. Toda operação recebe o usuário autenticado, que define a permissão e é gravado como autor em `auditoria_logs` e `historico_status_pedidos`. As regras puras (máquina de estados, progresso e validação de arquivos) ficam em `app/domain/regras/` e também são usadas pelo `PedidoService`.
+
+| Rota (Bearer obrigatório) | Quem pode | Regra |
+| --- | --- | --- |
+| `POST /demandas` | CLIENTE (para si) ou ADMIN (informando `cliente_id`) | Nasce em `PLANEAMENTO` com 15%. |
+| `PATCH /demandas/{id}` | Cliente da demanda ou ADMIN | Título ≥ 3 e descrição ≥ 5 caracteres. |
+| `DELETE /demandas/{id}` | ADMIN | Demandas concluídas não podem ser excluídas. |
+| `PUT /demandas/{id}/responsavel` | ADMIN | O responsável deve ser um TECNICO ativo. |
+| `POST /demandas/{id}/status` | Técnico responsável ou ADMIN | `PLANEAMENTO → EXECUCAO → HOMOLOGACAO`; etapas pendentes bloqueiam a homologação. `CONCLUIDO` só pelo aceite. |
+| `GET/POST /demandas/{id}/etapas`, `POST .../etapas/{etapa_id}/conclusao` | Técnico responsável ou ADMIN (leitura: quem vê a demanda) | Etapas em `PLANEAMENTO`/`EXECUCAO`; conclusão só em `EXECUCAO`. Em `EXECUCAO`, progresso = 15 + 70 × concluídas/total. |
+| `POST /demandas/{id}/aceite` | Somente o cliente da demanda | Exige `HOMOLOGACAO`; grava aceite com hash SHA-256 e conclui com 100%. |
+| `POST /demandas/{id}/rejeicao` | Somente o cliente da demanda | Motivo ≥ 10 caracteres; volta para `EXECUCAO` e registra ocorrência `REGRESSO_ESTADO`. |
+| `POST /demandas/{id}/evidencias` | Cliente, técnico responsável ou ADMIN | Multipart `arquivo`; aceita `pdf`, `png`, `jpg`, `jpeg` e `docx` até 10 MB. |
+| `GET /demandas/{id}/historico` | Quem vê a demanda | Auditoria somente leitura, com o autor de cada ação. |
+
+Demandas fora do escopo do usuário respondem 404; falta de permissão responde 403; violação de estado ou de imutabilidade responde 409; dados inválidos respondem 422. Corpos com campos desconhecidos (por exemplo um `cliente_id` no aceite) são recusados com 422.
+
+**Validação de evidências.** O conteúdo real precisa ter a assinatura do formato declarado (um executável renomeado para `.png` é recusado). PDFs com JavaScript, ações ou arquivos embutidos e DOCX com macros são recusados, e o DOCX tem limite de conteúdo descompactado. O `content-type` enviado ao Storage é o detectado, não o informado pelo cliente. O `.doc` legado deixou de ser aceito por não permitir verificar macros com segurança.
+
+**Imutabilidade do aceite (SCRUM-72).** Além das checagens do service, o modelo `AceiteFormal` recusa UPDATE/DELETE no ORM e a migration `3c9e7a1b5d20` cria no PostgreSQL: um aceite por pedido (`UNIQUE`), trigger que impede alterar ou excluir aceites, trigger que impede alterar ou excluir pedidos `CONCLUIDO` e que só permite chegar a `CONCLUIDO` quando existe aceite. Essas regras valem para qualquer cliente do banco, inclusive `PedidoService.atualizar`.
 
 O cliente Supabase é criado sob demanda na infraestrutura. `app/core/storage.py` preserva os imports antigos sem criar cliente ao importar o módulo. `AnexoService` controla upload, metadados e compensação quando a persistência falha; falha de refresh após commit não remove o arquivo já referenciado pelo banco. Os testes atuais usam Storage simulado e não realizam upload real.
 
