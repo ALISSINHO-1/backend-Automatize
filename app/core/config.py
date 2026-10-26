@@ -4,6 +4,8 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
+from app.core.postgres_tls import parameters_from_url
+
 
 _JWT_PLACEHOLDERS = {
     "change-me",
@@ -30,7 +32,13 @@ def validate_database_url(value: str | None) -> str:
         raise ValueError("DATABASE_URL deve usar PostgreSQL com o driver psycopg2.")
     if not parsed.database:
         raise ValueError("DATABASE_URL deve informar o banco de dados.")
-    return value
+    effective = parameters_from_url(parsed)
+    updates = {key: effective[key] for key in ("sslmode", "gssencmode") if key in effective and key not in parsed.query}
+    # Also normalize an explicit gssencmode=prefer to prevent GSS taking
+    # precedence over TLS. No secret is included in validation errors.
+    if "gssencmode" in effective and effective["gssencmode"] != parsed.query.get("gssencmode"):
+        updates["gssencmode"] = effective["gssencmode"]
+    return parsed.update_query_dict(updates).render_as_string(hide_password=False) if updates else value
 
 
 class Settings(BaseSettings):
@@ -42,7 +50,7 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    DATABASE_URL: str | None = None
+    DATABASE_URL: str | None = Field(default=None, repr=False)
     STORAGE_BUCKET_NAME: str = "evidencias-anexos"
     SUPABASE_URL: str | None = None
     SUPABASE_KEY: str | None = Field(default=None, repr=False)

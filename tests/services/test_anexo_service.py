@@ -12,6 +12,7 @@ from app.services.anexo_service import (
     AnexoService,
     ArquivoInvalidoError,
 )
+from tests.attachment_samples import pdf
 
 
 @pytest.fixture
@@ -105,7 +106,7 @@ def test_criar_anexo_faz_upload_e_commit(
     pedido_id = uuid4()
     usuario_id = uuid4()
 
-    conteudo = b"arquivo de teste"
+    conteudo = pdf()
 
     storage.upload.return_value = (
         f"pedidos/{pedido_id}/arquivo.pdf"
@@ -151,7 +152,7 @@ def test_criar_rejeita_extensao_invalida(
             pedido_id=uuid4(),
             enviado_por_id=uuid4(),
             nome_arquivo="programa.exe",
-            conteudo=b"teste",
+            conteudo=pdf(),
             content_type="application/octet-stream",
         )
 
@@ -226,7 +227,7 @@ def test_criar_faz_rollback_e_remove_storage_se_banco_falhar(
             pedido_id=pedido_id,
             enviado_por_id=uuid4(),
             nome_arquivo="arquivo.pdf",
-            conteudo=b"teste",
+            conteudo=pdf(),
             content_type="application/pdf",
         )
 
@@ -241,7 +242,7 @@ def test_refresh_failure_after_commit_keeps_storage_object(service, repository, 
     with pytest.raises(RuntimeError, match="refresh failed"):
         service.criar(
             pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
-            conteudo=b"teste", content_type="application/pdf",
+            conteudo=pdf(), content_type="application/pdf",
         )
     db_session.commit.assert_called_once()
     db_session.rollback.assert_not_called()
@@ -255,7 +256,72 @@ def test_commit_failure_rolls_back_and_removes_uploaded_object(service, reposito
     with pytest.raises(RuntimeError, match="commit failed"):
         service.criar(
             pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="arquivo.pdf",
-            conteudo=b"teste", content_type="application/pdf",
+            conteudo=pdf(), content_type="application/pdf",
         )
     db_session.rollback.assert_called_once()
     storage.delete.assert_called_once_with("pedidos/teste/arquivo.pdf")
+
+
+def test_storage_failure_rolls_back_without_creating_metadata(service, repository, storage, db_session):
+    from app.infrastructure.storage.supabase_storage import StorageUploadError
+    storage.upload.side_effect = StorageUploadError("upload failed", caminho_storage="generated")
+    with pytest.raises(StorageUploadError):
+        service.criar(pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="e.pdf",
+                      conteudo=pdf(), content_type="application/pdf")
+    repository.create.assert_not_called()
+    db_session.commit.assert_not_called()
+    db_session.rollback.assert_called_once()
+    storage.delete.assert_not_called()
+
+
+@pytest.mark.parametrize("rollback_fails", [False, True])
+def test_compensation_runs_even_when_rollback_fails(service, repository, storage, db_session, rollback_fails):
+    repository.create.side_effect = RuntimeError("database failed")
+    storage.upload.return_value = "generated"
+    if rollback_fails:
+        db_session.rollback.side_effect = RuntimeError("rollback failed")
+    with pytest.raises(RuntimeError):
+        service.criar(pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="e.pdf",
+                      conteudo=pdf(), content_type="application/pdf")
+    storage.delete.assert_called_once_with("generated")
+
+
+def test_failed_compensation_is_explicit_and_retains_cleanup_path(service, repository, storage, db_session):
+    from app.infrastructure.storage.supabase_storage import StorageDeleteError
+    from app.services.anexo_service import AnexoCompensacaoError
+    repository.create.side_effect = RuntimeError("database private detail")
+    storage.upload.return_value = "generated"
+    storage.delete.side_effect = StorageDeleteError("provider private detail")
+    with pytest.raises(AnexoCompensacaoError) as error:
+        service.criar(pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="e.pdf",
+                      conteudo=pdf(), content_type="application/pdf")
+    assert error.value.caminho_storage == "generated"
+    assert "private detail" not in str(error.value)
+    assert error.value.__suppress_context__
+    db_session.rollback.assert_called_once()
+
+
+@pytest.mark.parametrize("name,data", [
+    ("fake.pdf", b"<html>fake</html>"), ("wrong.png", pdf()), ("empty.pdf", b""),
+    ("../file.pdf", pdf()), ("..\\file.pdf", pdf()),
+])
+def test_invalid_file_never_reaches_storage_or_metadata(service, storage, repository, name, data):
+    with pytest.raises(ArquivoInvalidoError):
+        service.criar(pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo=name,
+                      conteudo=data, content_type="application/pdf")
+    repository.create.assert_not_called()
+    storage.upload.assert_not_called()
+
+
+def test_lost_commit_confirmation_preserves_object_for_reconciliation(service, storage, repository, db_session):
+    from sqlalchemy.exc import OperationalError
+    from app.services.anexo_service import AnexoCommitIncertoError
+    storage.upload.return_value = "generated"
+    db_session.commit.side_effect = OperationalError(None, None, ConnectionError("private detail"), connection_invalidated=True)
+    with pytest.raises(AnexoCommitIncertoError) as error:
+        service.criar(pedido_id=uuid4(), enviado_por_id=uuid4(), nome_arquivo="e.pdf",
+                      conteudo=pdf(), content_type="application/pdf")
+    assert error.value.caminho_storage == "generated"
+    assert "private detail" not in str(error.value)
+    db_session.rollback.assert_called_once()
+    storage.delete.assert_not_called()

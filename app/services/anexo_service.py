@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session # type: ignore
+from sqlalchemy.exc import DBAPIError
 
 from app.domain.models.anexo import Anexo
+from app.infrastructure.storage.file_validation import (
+    ArquivoInvalidoError,
+    MIME_POR_EXTENSAO,
+    TAMANHO_MAXIMO_BYTES,
+    validar_arquivo,
+)
 from app.infrastructure.storage.supabase_storage import (
     StorageDeleteError,
     SupabaseStorage,
@@ -18,21 +24,23 @@ class AnexoNaoEncontradoError(Exception):
     pass
 
 
-class ArquivoInvalidoError(Exception):
-    pass
+class AnexoCompensacaoError(RuntimeError):
+    """A failed write also needs operational cleanup; do not hide that failure."""
+
+    def __init__(self, caminho_storage: str) -> None:
+        self.caminho_storage = caminho_storage
+        super().__init__("Falha ao compensar anexo; reconciliação do Storage necessária.")
+
+
+class AnexoCommitIncertoError(RuntimeError):
+    def __init__(self, caminho_storage: str) -> None:
+        self.caminho_storage = caminho_storage
+        super().__init__("Confirmação de commit indisponível; reconciliação do anexo necessária.")
 
 
 class AnexoService:
-    EXTENSOES_PERMITIDAS = {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".doc",
-        ".docx",
-    }
-
-    TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10 MB
+    EXTENSOES_PERMITIDAS = set(MIME_POR_EXTENSAO)
+    TAMANHO_MAXIMO_BYTES = TAMANHO_MAXIMO_BYTES
 
     def __init__(
         self,
@@ -73,31 +81,23 @@ class AnexoService:
         content_type: str,
         ocorrencia_id: UUID | None = None,
     ) -> Anexo:
-        extensao = Path(nome_arquivo).suffix.lower()
+        if not isinstance(pedido_id, UUID) or not isinstance(enviado_por_id, UUID):
+            raise ValueError("pedido_id e enviado_por_id devem ser UUIDs.")
+        extensao, mime_detectado = validar_arquivo(nome_arquivo, conteudo, content_type)
 
-        if extensao not in self.EXTENSOES_PERMITIDAS:
-            raise ArquivoInvalidoError(
-                f"Extensão '{extensao}' não permitida."
-            )
-
-        if not conteudo:
-            raise ArquivoInvalidoError(
-                "O arquivo está vazio."
-            )
-
-        if len(conteudo) > self.TAMANHO_MAXIMO_BYTES:
-            raise ArquivoInvalidoError(
-                "O arquivo excede o limite de 10 MB."
-            )
-
-        caminho_storage = self.storage.upload(
-            pedido_id=pedido_id,
-            nome_arquivo=nome_arquivo,
-            conteudo=conteudo,
-            content_type=content_type,
-        )
-
+        caminho_storage: str | None = None
+        commit_iniciado = False
         try:
+            if ocorrencia_id is not None:
+                self.repository.validar_ocorrencia_do_pedido(
+                    pedido_id=pedido_id, ocorrencia_id=ocorrencia_id,
+                )
+            caminho_storage = self.storage.upload(
+                pedido_id=pedido_id,
+                nome_arquivo=nome_arquivo,
+                conteudo=conteudo,
+                content_type=mime_detectado,
+            )
             anexo = self.repository.create(
                 {
                     "pedido_id": pedido_id,
@@ -110,17 +110,24 @@ class AnexoService:
                 }
             )
 
+            commit_iniciado = True
             self.db.commit()
 
-        except Exception:
-            self.db.rollback()
-
-            # Compensação: evita arquivo órfão caso o banco falhe.
+        except Exception as exc:
+            commit_incerto = commit_iniciado and isinstance(exc, DBAPIError) and exc.connection_invalidated
             try:
-                self.storage.delete(caminho_storage)
-            except StorageDeleteError:
-                pass
-
+                self.db.rollback()
+            finally:
+                # Cleanup must still run when rollback itself fails.
+                if caminho_storage is not None:
+                    # A lost connection while committing does not prove that
+                    # metadata was rolled back. Preserve the object for review.
+                    if commit_incerto:
+                        raise AnexoCommitIncertoError(caminho_storage) from None
+                    try:
+                        self.storage.delete(caminho_storage)
+                    except StorageDeleteError:
+                        raise AnexoCompensacaoError(caminho_storage) from None
             raise
 
         # A refresh failure after commit cannot undo persisted metadata. Keep
