@@ -61,13 +61,16 @@ def validar_transicao(
     status_atual: StatusPedidoEnum,
     novo_status: StatusPedidoEnum,
     *,
+    total_etapas: int = 0,
     etapas_pendentes: tuple[str, ...] = (),
     motivo_regresso: str | None = None,
 ) -> None:
     """Valida a transicao pela maquina de estados.
 
     A conclusao nunca passa por aqui: ela so acontece com o aceite formal do
-    cliente (AprovacaoService)."""
+    cliente (AprovacaoService). HOMOLOGACAO exige ao menos uma etapa operacional
+    cadastrada e todas concluidas: sem etapas nao ha registro do que foi executado
+    para o cliente homologar."""
     if status_atual == StatusPedidoEnum.CONCLUIDO:
         raise TransicaoEstadoInvalidaException("Demandas no estado CONCLUIDO sao imutaveis.")
 
@@ -84,6 +87,12 @@ def validar_transicao(
 
     if status_atual == StatusPedidoEnum.HOMOLOGACAO:
         validar_motivo_regresso(motivo_regresso)
+
+    if novo_status == StatusPedidoEnum.HOMOLOGACAO and total_etapas <= 0:
+        raise TransicaoEstadoInvalidaException(
+            "Nao e permitido enviar para HOMOLOGACAO sem etapas operacionais: "
+            "cadastre e conclua ao menos uma etapa."
+        )
 
     if novo_status == StatusPedidoEnum.HOMOLOGACAO and etapas_pendentes:
         raise TransicaoEstadoInvalidaException(

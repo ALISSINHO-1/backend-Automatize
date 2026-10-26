@@ -32,12 +32,16 @@ def test_etapas_so_influenciam_progresso_em_execucao():
     assert ciclo_vida.calcular_progresso(Status.HOMOLOGACAO, 4, 0) == Decimal("85.00")
 
 
-@pytest.mark.parametrize("atual, novo", [
-    (Status.PLANEAMENTO, Status.EXECUCAO),
-    (Status.EXECUCAO, Status.HOMOLOGACAO),
-])
-def test_transicoes_de_avanco_validas(atual, novo):
-    ciclo_vida.validar_transicao(atual, novo)
+def test_transicoes_de_avanco_validas():
+    ciclo_vida.validar_transicao(Status.PLANEAMENTO, Status.EXECUCAO)
+    ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2)
+
+
+def test_homologacao_exige_ao_menos_uma_etapa():
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=0)
 
 
 @pytest.mark.parametrize("atual, novo", [
@@ -75,7 +79,7 @@ def test_regresso_com_motivo_valido():
 def test_homologacao_bloqueada_por_etapas_pendentes():
     with pytest.raises(TransicaoEstadoInvalidaException, match="Testar temperatura"):
         ciclo_vida.validar_transicao(
-            Status.EXECUCAO, Status.HOMOLOGACAO, etapas_pendentes=("Testar temperatura",)
+            Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2, etapas_pendentes=("Testar temperatura",)
         )
 
 
@@ -92,3 +96,6 @@ def test_pedido_service_usa_as_mesmas_regras():
     assert PedidoService.validar_e_transitar(Status.PLANEAMENTO, Status.EXECUCAO) == 50.0
     with pytest.raises(AprovacaoNaoAutorizadaException):
         PedidoService.validar_e_transitar(Status.HOMOLOGACAO, Status.CONCLUIDO)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO)
+    assert PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=1) == 85.0

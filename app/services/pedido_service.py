@@ -60,6 +60,9 @@ class PedidoService:
         status_atual: StatusPedidoEnum,
         novo_status: StatusPedidoEnum,
         motivo_regresso: Optional[str] = None,
+        *,
+        total_etapas: int = 0,
+        etapas_pendentes: tuple[str, ...] = (),
     ) -> float:
         """
         Valida uma transição pela máquina de estados e devolve o novo progresso.
@@ -70,6 +73,8 @@ class PedidoService:
         ciclo_vida.validar_transicao(
             status_atual,
             novo_status,
+            total_etapas=total_etapas,
+            etapas_pendentes=etapas_pendentes,
             motivo_regresso=motivo_regresso,
         )
         return cls.calcular_progresso(novo_status)
@@ -193,6 +198,7 @@ class PedidoService:
                 ciclo_vida.validar_transicao(
                     status_anterior,
                     novo_status,
+                    total_etapas=len(etapas),
                     etapas_pendentes=tuple(e.descricao for e in etapas if not e.concluida),
                 )
                 # O progresso acompanha o estado; um percentual enviado junto seria inconsistente.

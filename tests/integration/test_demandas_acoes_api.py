@@ -68,9 +68,13 @@ def demanda_id(client, auth, atores):
 
 
 def _homologar(client, auth, demanda_id):
-    for status in ("EXECUCAO", "HOMOLOGACAO"):
-        resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": status})
-        assert resposta.status_code == 200, resposta.text
+    resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "EXECUCAO"})
+    assert resposta.status_code == 200, resposta.text
+    etapa = client.post(f"/demandas/{demanda_id}/etapas", headers=auth["tecnico"],
+                        json={"descricao": "Executar servico"}).json()
+    client.post(f"/demandas/{demanda_id}/etapas/{etapa['id']}/conclusao", headers=auth["tecnico"])
+    resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "HOMOLOGACAO"})
+    assert resposta.status_code == 200, resposta.text
 
 
 ACEITE = {"versao_entregavel": "v1.0", "declaracao_aceite": "Aprovo a entrega conforme combinado."}
@@ -139,6 +143,14 @@ def test_etapas_pendentes_bloqueiam_homologacao(client, auth, demanda_id):
     liberada = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "HOMOLOGACAO"})
     assert liberada.status_code == 200
     assert liberada.json()["percentual_progresso"] == "85.00"
+
+
+def test_homologacao_sem_etapas_e_recusada_pela_api(client, auth, demanda_id):
+    client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "EXECUCAO"})
+    resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "HOMOLOGACAO"})
+    assert resposta.status_code == 409
+    assert "sem etapas operacionais" in resposta.json()["detail"]
+    assert client.get(f"/demandas/{demanda_id}", headers=auth["cliente"]).json()["status"] == "EXECUCAO"
 
 
 def test_rejeicao_pela_api(client, auth, demanda_id):
