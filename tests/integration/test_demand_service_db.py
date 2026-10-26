@@ -388,8 +388,18 @@ def test_banco_recusa_alteracao_direta_de_demanda_concluida(db, service, atores,
 def test_banco_recusa_concluir_sem_aceite_mesmo_fora_do_service(db, service, atores, demanda):
     _em_homologacao(service, atores, demanda)
 
-    # PedidoService.atualizar aceita status livre; a trigger impede o atalho.
+    # Escrita direta pelo ORM, sem passar por nenhum service: a trigger impede o atalho.
     with pytest.raises(DBAPIError, match="aceite formal"):
+        with db.begin_nested():
+            demanda.status = Status.CONCLUIDO
+            db.flush()
+    assert _recarregar(db, demanda).status == Status.HOMOLOGACAO
+
+
+def test_pedido_service_recusa_concluir_sem_aceite(db, service, atores, demanda):
+    _em_homologacao(service, atores, demanda)
+
+    with pytest.raises(AprovacaoNaoAutorizadaException):
         PedidoService(db).atualizar(demanda.id, PedidoUpdate(status=Status.CONCLUIDO),
                                     usuario_id=atores["admin"].id)
     assert _recarregar(db, demanda).status == Status.HOMOLOGACAO

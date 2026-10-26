@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session # type: ignore
 from app.domain.enums import StatusPedidoEnum
 from app.domain.models.pedido import Pedido
 from app.domain.regras import ciclo_vida
+from app.core.exceptions import RegistroImutavelException, TransicaoEstadoInvalidaException
+from app.repositories.etapa_operacional_repository import EtapaOperacionalRepository
 from app.repositories.historico_status_pedido_repository import (
     HistoricoStatusPedidoRepository,
 )
@@ -32,6 +34,7 @@ class PedidoService:
         db: Session,
         repository: PedidoRepository | None = None,
         historico_repository: HistoricoStatusPedidoRepository | None = None,
+        etapas_repository: EtapaOperacionalRepository | None = None,
     ) -> None:
         self.db = db
         self.repository = repository or PedidoRepository(db)
@@ -40,6 +43,7 @@ class PedidoService:
             if historico_repository is not None
             else HistoricoStatusPedidoRepository(db)
         )
+        self.etapas_repository = etapas_repository or EtapaOperacionalRepository(db)
 
     # ------------------------------------------------------------------
     # Regras de ciclo de vida (implementadas em app.domain.regras.ciclo_vida)
@@ -166,10 +170,37 @@ class PedidoService:
         )
 
         try:
+            if status_anterior == StatusPedidoEnum.CONCLUIDO:
+                raise RegistroImutavelException("Demandas CONCLUIDAS sao imutaveis.")
+
             novo_status = dados_atualizacao.get("status")
             mudou_status = novo_status is not None and novo_status != status_anterior
             if mudou_status and usuario_id is None:
                 raise ValueError("usuario_id é obrigatório para alteração de status.")
+
+            if mudou_status:
+                # Mesmas regras do DemandService.alterar_status: sem isso a edição
+                # genérica deixaria pular estados, homologar com etapas pendentes
+                # ou voltar para EXECUCAO sem a rejeição (e o motivo) do cliente.
+                if (
+                    status_anterior == StatusPedidoEnum.HOMOLOGACAO
+                    and novo_status == StatusPedidoEnum.EXECUCAO
+                ):
+                    raise TransicaoEstadoInvalidaException(
+                        "O retorno de HOMOLOGACAO para EXECUCAO e feito pela rejeicao do cliente."
+                    )
+                etapas = self.etapas_repository.get_by_pedido(pedido.id)
+                ciclo_vida.validar_transicao(
+                    status_anterior,
+                    novo_status,
+                    etapas_pendentes=tuple(e.descricao for e in etapas if not e.concluida),
+                )
+                # O progresso acompanha o estado; um percentual enviado junto seria inconsistente.
+                dados_atualizacao["percentual_progresso"] = ciclo_vida.calcular_progresso(
+                    novo_status,
+                    len(etapas),
+                    sum(1 for e in etapas if e.concluida),
+                )
 
             pedido = self.repository.update(
                 pedido,
