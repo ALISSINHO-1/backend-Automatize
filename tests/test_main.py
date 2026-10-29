@@ -136,7 +136,7 @@ def test_health_does_not_open_a_database_connection(app_components, monkeypatch)
 
 def test_application_validates_required_settings_at_startup(app_components) -> None:
     Settings, create_app = app_components
-    unconfigured = Settings(_env_file=None)
+    unconfigured = Settings(_env_file=None, DATABASE_URL=None, JWT_SECRET_KEY=None)
 
     with pytest.raises(ValueError, match="DATABASE_URL é obrigatória"):
         with TestClient(create_app(unconfigured)):

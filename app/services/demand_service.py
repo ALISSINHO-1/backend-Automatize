@@ -528,6 +528,10 @@ class DemandService:
                     "criado_por_id": usuario.id,
                 }
             )
+            # CURRENT_TIMESTAMP is constant for the whole PostgreSQL transaction.
+            # Use the trusted application clock so successive stages keep their
+            # creation order even inside an integration-test savepoint.
+            etapa.created_at = self._agora()
             self._recalcular_progresso(pedido)
             self._auditar(
                 usuario,
