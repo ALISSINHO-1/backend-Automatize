@@ -1,14 +1,15 @@
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.demanda_filtros import DemandaFiltros
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.domain.models.user import User
 from app.domain.schemas.demanda_schema import DemandaResponse
 from app.services.demanda_service import DemandAccessDenied, DemandaQueryService
-
 
 router = APIRouter(prefix="/demandas", tags=["Demandas"])
 
@@ -34,9 +35,7 @@ _UNAUTHORIZED_RESPONSE = {
         }
     },
     "content": {
-        "application/json": {
-            "example": {"detail": "Não foi possível autenticar."}
-        }
+        "application/json": {"example": {"detail": "Não foi possível autenticar."}}
     },
 }
 
@@ -63,6 +62,12 @@ _UNAUTHORIZED_RESPONSE = {
     },
 )
 def list_demandas(
+    response: Response,
+    filtros: DemandaFiltros = Depends(),
+    incluir_totais: bool = Query(
+        False,
+        description="Inclui X-Total-Count e X-Counts-By-Status, calculados sobre todos os resultados filtrados e autorizados.",
+    ),
     offset: int = Query(default=0, ge=0, description="Número de registros a pular."),
     limit: int = Query(
         default=100,
@@ -74,11 +79,20 @@ def list_demandas(
     db: Session = Depends(get_db),
 ) -> list[DemandaResponse]:
     try:
-        results = DemandaQueryService(db).list_demands(
-            user,
-            offset=offset,
-            limit=limit,
-        )
+        service = DemandaQueryService(db)
+        if filtros.values or incluir_totais:
+            results, contagens = service.consultar_filtrado(
+                user,
+                filtros=filtros.values,
+                offset=offset,
+                limit=limit,
+                incluir_totais=incluir_totais,
+            )
+            if contagens is not None:
+                response.headers["X-Total-Count"] = str(sum(contagens.values()))
+                response.headers["X-Counts-By-Status"] = json.dumps(contagens)
+        else:
+            results = service.list_demands(user, offset=offset, limit=limit)
     except DemandAccessDenied:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

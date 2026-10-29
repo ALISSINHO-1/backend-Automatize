@@ -43,6 +43,18 @@ class DemandaQueryService:
             **scope,
         )
 
+    def consultar_filtrado(
+        self, user: User, *, filtros, offset: int, limit: int, incluir_totais: bool
+    ):
+        scope = self.access_scope(user)
+        return self.pedidos.consultar_filtrado(
+            scope=scope,
+            filtros=filtros,
+            offset=offset,
+            limit=limit,
+            incluir_totais=incluir_totais,
+        )
+
     def get_demand(self, user: User, pedido_id: UUID) -> Pedido | None:
         scope = self.access_scope(user)
         return self.pedidos.get_by_id_for_access_scope(pedido_id, **scope)

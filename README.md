@@ -215,3 +215,48 @@ O cliente Supabase é criado sob demanda na infraestrutura. `app/core/storage.py
 A listagem atual usa `GET /demandas` com Bearer, escopo por usuário e paginação. Para atualização periódica da interface, a abordagem inicial é polling no frontend, com intervalo alinhado à necessidade da apresentação, atualização ao voltar o foco e pausa em abas ocultas. Preserve filtros e paginação e trate expiração do token. Não foi implementado polling ou scheduler. SSE pode ser avaliado posteriormente caso seja necessário receber mudanças imediatamente.
 
 O relatório de auditoria e o estado das tarefas estão em `docs/backend-audit.md`.
+
+
+## API e documentação — complemento de 29/10/2026
+
+Acesse `/docs` após iniciar `uvicorn app.main:app --reload`. O Swagger possui grupos
+por domínio, busca, operações recolhidas e exemplos. Faça login com JSON `email`/`senha`
+e informe somente `access_token` em **Authorize**. A autorização não é persistida no navegador.
+
+- `PUT /demandas/{id}` atualiza título e descrição; `PATCH` permanece compatível.
+- `/demandas/{id}/ocorrencias`: POST e GET paginado; `/{ocorrencia_id}`: GET e PUT.
+  O token define o autor. Apenas autor ou ADMIN edita a descrição. Registros de rejeição
+  e demandas concluídas são imutáveis; tipo, autor e vínculo não são editáveis.
+- `GET /demandas/{id}/anexos`: metadados paginados sem caminho do bucket.
+  `GET /demandas/{id}/anexos/{anexo_id}/acesso`: após autorizar, redireciona a link
+  assinado com validade de 60 segundos. Esse link é uma credencial temporária:
+  não o grave em logs nem o compartilhe. O bucket deve continuar privado.
+- `GET /demandas`: aceita `busca`, `estado`, `cliente_id`, `responsavel_id`, `inicio`,
+  `fim`, `offset`, `limit` e `incluir_totais=true`. Datas precisam de fuso ISO 8601.
+  A resposta continua sendo uma lista; os headers `X-Total-Count` e `X-Counts-By-Status`
+  apresentam totais de todos os resultados filtrados autorizados, antes da paginação.
+  Os filtros adicionais nunca substituem o escopo de acesso do usuário.
+
+### Verificação reproduzível
+
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -ra
+# PostgreSQL descartável: nome do banco contendo "test"; nunca usar produção.
+export TEST_DATABASE_URL='postgresql+psycopg2://usuario:senha@localhost/automatize_test'
+python -m pytest tests/integration -ra
+```
+
+O workflow `.github/workflows/api.yml` executa migrations do zero e a suíte em
+PostgreSQL 17 descartável, com credenciais exclusivas de teste e relatório JUnit.
+Os testes `test_api_completion_sql.py` cobrem HTTP com SQL real em SQLite; não
+substituem a validação de locks, triggers e migrations no job PostgreSQL.
+
+### Separação de responsabilidades
+
+Rotas validam o contrato e traduzem exceções; services autorizam, aplicam regras,
+controlam transações e auditoria; repositories executam as consultas SQL.
+A revisão completa SCRUM-86 ainda deve tratar SQL legado existente no `DemandService`
+(histórico e bloqueio de pedido). Este complemento usa repositories nas novas consultas.
+Não há migration de estado de ocorrência: o modelo atual possui tipo e descrição;
+qualquer ciclo adicional de resolução deve ser alinhado com Luís e Henrique.

@@ -14,8 +14,10 @@ class _Requisicao(BaseModel):
 
 
 class DemandaCreateRequest(_Requisicao):
-    titulo: str = Field(max_length=255)
-    descricao: str
+    titulo: str = Field(max_length=255, examples=["Ajustar relatório de vendas"])
+    descricao: str = Field(
+        examples=["Incluir total mensal e filtros por período no relatório."]
+    )
     cliente_id: UUID | None = Field(
         default=None,
         description="Usado apenas por ADMIN. Para CLIENTE, a demanda e sempre do usuario do token.",
@@ -23,8 +25,10 @@ class DemandaCreateRequest(_Requisicao):
 
 
 class DemandaUpdateRequest(_Requisicao):
-    titulo: str = Field(max_length=255)
-    descricao: str
+    titulo: str = Field(max_length=255, examples=["Ajustar relatório de vendas"])
+    descricao: str = Field(
+        examples=["Incluir total mensal e filtros por período no relatório."]
+    )
 
 
 class StatusUpdateRequest(_Requisicao):
@@ -32,7 +36,10 @@ class StatusUpdateRequest(_Requisicao):
 
 
 class RejeicaoRequest(_Requisicao):
-    motivo: str = Field(description="Motivo da rejeicao (minimo 10 caracteres).")
+    motivo: str = Field(
+        description="Motivo da rejeição (mínimo 10 caracteres).",
+        examples=["Os totais do relatório ainda divergem do combinado."],
+    )
 
 
 class ResponsavelRequest(_Requisicao):
@@ -48,7 +55,9 @@ class EtapaResponse(BaseModel):
 
     id: UUID
     pedido_id: UUID
-    descricao: str
+    descricao: str = Field(
+        examples=["Incluir total mensal e filtros por período no relatório."]
+    )
     concluida: bool
     concluida_em: datetime | None
     concluida_por_id: UUID | None

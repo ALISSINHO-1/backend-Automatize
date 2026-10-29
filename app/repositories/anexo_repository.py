@@ -66,6 +66,12 @@ class AnexoRepository(BaseRepository[Anexo]):
             .order_by(Anexo.created_at, Anexo.id)
         ).all()
 
+    def listar_paginado(self, pedido_id: UUID, *, offset: int, limit: int):
+        return self.db.scalars(
+            select(Anexo).where(Anexo.pedido_id == pedido_id)
+            .order_by(Anexo.created_at, Anexo.id).offset(offset).limit(limit)
+        ).all()
+
     def get_by_pedido(
         self,
         pedido_id: UUID,

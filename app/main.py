@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router as api_v1_router
+from app.api.openapi import DESCRIPTION, TAGS
 from app.core.config import Settings, settings
 from app.core.database import create_database_engine, create_session_factory
 
@@ -27,7 +28,13 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
 
     application = FastAPI(
         title="Automatize API",
-        description="API para gestão de ordens de serviço, integração mobile e homologação formal.",
+        description=DESCRIPTION,
+        openapi_tags=TAGS,
+        swagger_ui_parameters={
+            "docExpansion": "none", "filter": True, "displayRequestDuration": True,
+            "defaultModelsExpandDepth": -1, "syntaxHighlight.theme": "obsidian",
+            "persistAuthorization": False,
+        },
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -56,10 +63,11 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Total-Count", "X-Counts-By-Status"],
     )
     application.include_router(api_v1_router)
 
-    @application.get("/", tags=["Root"])
+    @application.get("/", tags=["Sistema"], summary="Identifica a API")
     def read_root() -> dict[str, str]:
         return {
             "message": "Automatize API",
@@ -70,7 +78,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
 
     @application.get(
         "/health",
-        tags=["Health"],
+        tags=["Sistema"],
         summary="Verifica se a aplicação está ativa",
         description="Verificação de que a aplicação está ativa.",
     )

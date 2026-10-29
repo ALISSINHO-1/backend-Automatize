@@ -22,13 +22,20 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False)
 
 
 def create_database_engine(
-    configured_settings: Settings, *, connect_args: Mapping[str, Any] | None = None,
+    configured_settings: Settings,
+    *,
+    connect_args: Mapping[str, Any] | None = None,
 ) -> Engine:
-    database_url = configured_settings.validate_database_configuration()
+    database_url = make_url(configured_settings.validate_database_configuration())
+    # Keep the declared psycopg2 contract even when SQLAlchemy changes defaults.
+    if database_url.drivername == "postgresql":
+        database_url = database_url.set(drivername="postgresql+psycopg2")
     effective = parameters_from_url(make_url(database_url))
     effective.update(connect_args or {})
     checked = secure_connect_parameters(effective)
-    engine = create_engine(database_url, pool_pre_ping=True, hide_parameters=True, connect_args=checked)
+    engine = create_engine(
+        database_url, pool_pre_ping=True, hide_parameters=True, connect_args=checked
+    )
 
     @event.listens_for(engine, "do_connect")
     def validate_final_driver_parameters(dialect, connection_record, cargs, cparams):
@@ -51,9 +58,7 @@ def create_session_factory(database_engine: Engine) -> sessionmaker[Session]:
 
 def get_db(request: Request) -> Generator[Session, None, None]:
     """Yield one request session and always close it, without committing."""
-    factory = (
-        getattr(request.app.state, "session_factory", SessionLocal)
-    )
+    factory = getattr(request.app.state, "session_factory", SessionLocal)
     db = factory()
     try:
         yield db

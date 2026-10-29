@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
 
 from app.domain.models.enums import StatusPedidoEnum
@@ -25,11 +25,15 @@ class PedidoRepository(BaseRepository[Pedido]):
 
     protected_fields = BaseRepository.protected_fields | frozenset({"cliente_id"})
 
-    def get_by_id_for_cliente(self, pedido_id: UUID, *, cliente_id: UUID) -> Pedido | None:
+    def get_by_id_for_cliente(
+        self, pedido_id: UUID, *, cliente_id: UUID
+    ) -> Pedido | None:
         self._require_uuid(cliente_id)
         return self.get_by_id_for_access_scope(pedido_id, cliente_id=cliente_id)
 
-    def get_by_id_for_responsavel(self, pedido_id: UUID, *, responsavel_id: UUID) -> Pedido | None:
+    def get_by_id_for_responsavel(
+        self, pedido_id: UUID, *, responsavel_id: UUID
+    ) -> Pedido | None:
         self._require_uuid(responsavel_id)
         return self.get_by_id_for_access_scope(pedido_id, responsavel_id=responsavel_id)
 
@@ -42,9 +46,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         self,
         codigo: str,
     ) -> Pedido | None:
-        stmt = select(Pedido).where(
-            Pedido.codigo_identificador == codigo
-        )
+        stmt = select(Pedido).where(Pedido.codigo_identificador == codigo)
 
         return self.db.scalar(stmt)
 
@@ -52,13 +54,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         self,
         codigo: str,
     ) -> bool:
-        stmt = (
-            select(Pedido.id)
-            .where(
-                Pedido.codigo_identificador == codigo
-            )
-            .limit(1)
-        )
+        stmt = select(Pedido.id).where(Pedido.codigo_identificador == codigo).limit(1)
 
         return self.db.scalar(stmt) is not None
 
@@ -69,12 +65,8 @@ class PedidoRepository(BaseRepository[Pedido]):
         self._require_uuid(cliente_id)
         stmt = (
             select(Pedido)
-            .where(
-                Pedido.cliente_id == cliente_id
-            )
-            .order_by(
-                Pedido.created_at.desc()
-            )
+            .where(Pedido.cliente_id == cliente_id)
+            .order_by(Pedido.created_at.desc())
         )
 
         return self.db.scalars(stmt).all()
@@ -85,12 +77,8 @@ class PedidoRepository(BaseRepository[Pedido]):
     ) -> Sequence[Pedido]:
         stmt = (
             select(Pedido)
-            .where(
-                Pedido.status == status
-            )
-            .order_by(
-                Pedido.created_at.desc()
-            )
+            .where(Pedido.status == status)
+            .order_by(Pedido.created_at.desc())
         )
 
         return self.db.scalars(stmt).all()
@@ -102,12 +90,8 @@ class PedidoRepository(BaseRepository[Pedido]):
         self._require_uuid(responsavel_id)
         stmt = (
             select(Pedido)
-            .where(
-                Pedido.responsavel_id == responsavel_id
-            )
-            .order_by(
-                Pedido.created_at.desc()
-            )
+            .where(Pedido.responsavel_id == responsavel_id)
+            .order_by(Pedido.created_at.desc())
         )
 
         return self.db.scalars(stmt).all()
@@ -148,3 +132,47 @@ class PedidoRepository(BaseRepository[Pedido]):
         if responsavel_id is not None:
             stmt = stmt.where(Pedido.responsavel_id == responsavel_id)
         return self.db.scalar(stmt)
+
+    def consultar_filtrado(
+        self, *, scope, filtros, offset: int, limit: int, incluir_totais: bool
+    ):
+        conditions = [getattr(Pedido, campo) == valor for campo, valor in scope.items()]
+        for campo in ("cliente_id", "responsavel_id"):
+            if campo in filtros:
+                conditions.append(getattr(Pedido, campo) == filtros[campo])
+        if "estado" in filtros:
+            conditions.append(Pedido.status == filtros["estado"])
+        if "inicio" in filtros:
+            conditions.append(Pedido.created_at >= filtros["inicio"])
+        if "fim" in filtros:
+            conditions.append(Pedido.created_at <= filtros["fim"])
+        if "busca" in filtros:
+            termo = (
+                filtros["busca"]
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            conditions.append(
+                or_(
+                    Pedido.titulo.ilike(f"%{termo}%", escape="\\"),
+                    Pedido.codigo_identificador.ilike(f"%{termo}%", escape="\\"),
+                )
+            )
+        registros = self.db.scalars(
+            select(Pedido)
+            .where(*conditions)
+            .order_by(Pedido.created_at, Pedido.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        contagens = None
+        if incluir_totais:
+            contagens = {estado.value: 0 for estado in StatusPedidoEnum}
+            for estado, total in self.db.execute(
+                select(Pedido.status, func.count())
+                .where(*conditions)
+                .group_by(Pedido.status)
+            ):
+                contagens[estado.value] = total
+        return registros, contagens
