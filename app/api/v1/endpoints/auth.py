@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_application_settings
+from app.api.dependencies import get_application_settings, get_current_user
 from app.core.config import Settings
 from app.core.database import get_db
-from app.domain.schemas.auth_schema import LoginRequest, TokenResponse
+from app.domain.models.user import User
+from app.domain.schemas.auth_schema import LoginRequest, TokenResponse, UsuarioAtualResponse
 from app.services.auth_service import AuthenticationError, AuthService
 
 
@@ -71,3 +72,13 @@ def login(
         ) from None
 
     return TokenResponse(access_token=token, token_type="bearer")
+
+
+@router.get(
+    "/me",
+    response_model=UsuarioAtualResponse,
+    summary="Retorna o usuario autenticado (id, nome, e-mail e perfil)",
+    responses={401: {"description": "Token ausente, invalido, expirado ou conta inativa."}},
+)
+def usuario_atual(usuario: User = Depends(get_current_user)) -> UsuarioAtualResponse:
+    return UsuarioAtualResponse.model_validate(usuario)
