@@ -32,18 +32,25 @@ def test_etapas_so_influenciam_progresso_em_execucao():
     assert ciclo_vida.calcular_progresso(Status.HOMOLOGACAO, 4, 0) == Decimal("85.00")
 
 
-@pytest.mark.parametrize("atual, novo", [
-    (Status.PLANEAMENTO, Status.EXECUCAO),
-    (Status.EXECUCAO, Status.HOMOLOGACAO),
+@pytest.mark.parametrize("atual, novo, total", [
+    (Status.PLANEAMENTO, Status.EXECUCAO, 0),
+    (Status.PLANEAMENTO, Status.EXECUCAO, 1),
+    (Status.EXECUCAO, Status.HOMOLOGACAO, 1),
+    (Status.EXECUCAO, Status.HOMOLOGACAO, 2),
 ])
-def test_transicoes_de_avanco_validas(atual, novo):
-    ciclo_vida.validar_transicao(atual, novo, total_etapas=1)
+def test_transicoes_de_avanco_validas(atual, novo, total):
+    ciclo_vida.validar_transicao(atual, novo, total_etapas=total)
 
 
 @pytest.mark.parametrize("atual", [Status.PLANEAMENTO, Status.EXECUCAO])
-def test_homologacao_exige_ao_menos_uma_etapa(atual):
-    with pytest.raises(TransicaoEstadoInvalidaException):
-        ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO)
+@pytest.mark.parametrize("total", [None, 0], ids=["default-zero", "explicit-zero"])
+def test_homologacao_exige_ao_menos_uma_etapa(atual, total):
+    mensagem = "sem etapas operacionais" if atual == Status.EXECUCAO else "Transicao ilegal"
+    with pytest.raises(TransicaoEstadoInvalidaException, match=mensagem):
+        if total is None:
+            ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO)
+        else:
+            ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO, total_etapas=total)
 
 
 @pytest.mark.parametrize("total,pendentes", [

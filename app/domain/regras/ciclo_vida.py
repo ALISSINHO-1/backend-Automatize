@@ -69,7 +69,8 @@ def validar_transicao(
 
     A conclusao nunca passa por aqui: ela so acontece com o aceite formal do
     cliente (AprovacaoService). HOMOLOGACAO exige ao menos uma etapa operacional
-    cadastrada e todas concluidas (SCRUM-71 / PR #12)."""
+    cadastrada e todas concluidas (SCRUM-71 / PR #12): sem etapas nao ha registro
+    do que foi executado para o cliente homologar."""
     if status_atual == StatusPedidoEnum.CONCLUIDO:
         raise TransicaoEstadoInvalidaException("Demandas no estado CONCLUIDO sao imutaveis.")
 

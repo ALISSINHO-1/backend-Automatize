@@ -99,7 +99,9 @@ class DemandService:
         return self.auditoria.get_by_pedido(pedido.id)
 
     def listar_estados(self, usuario: User, pedido_id: UUID) -> list[dict[str, Any]]:
-        """Linha do tempo de estados com autores, preservada do PR #12 da HML."""
+        """Linha do tempo dos estados no formato do HistoricoEstadoModel do frontend:
+        a criacao (estado_anterior nulo) seguida de cada transicao, com o nome do
+        autor, conforme o PR #12 da HML."""
         pedido = self.obter(usuario, pedido_id)
         eventos: list[dict[str, Any]] = []
 
