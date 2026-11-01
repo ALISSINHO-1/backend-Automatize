@@ -15,6 +15,9 @@ from app.repositories.historico_status_pedido_repository import (
     HistoricoStatusPedidoRepository,
 )
 from app.repositories.pedido_repository import PedidoRepository
+from app.repositories.user_repository import UserRepository
+from app.domain.models.enums import PerfilEnum
+from app.core.exceptions import AcessoNegadoException, RecursoNaoEncontradoException
 from app.schemas.pedido import PedidoCreate, PedidoUpdate
 
 
@@ -44,6 +47,7 @@ class PedidoService:
             else HistoricoStatusPedidoRepository(db)
         )
         self.etapas_repository = etapas_repository or EtapaOperacionalRepository(db)
+        self.users = UserRepository(db)
 
     # ------------------------------------------------------------------
     # Regras de ciclo de vida (implementadas em app.domain.regras.ciclo_vida)
@@ -60,6 +64,9 @@ class PedidoService:
         status_atual: StatusPedidoEnum,
         novo_status: StatusPedidoEnum,
         motivo_regresso: Optional[str] = None,
+        *,
+        total_etapas: int = 0,
+        etapas_pendentes: tuple[str, ...] = (),
     ) -> float:
         """
         Valida uma transição pela máquina de estados e devolve o novo progresso.
@@ -70,6 +77,8 @@ class PedidoService:
         ciclo_vida.validar_transicao(
             status_atual,
             novo_status,
+            total_etapas=total_etapas,
+            etapas_pendentes=etapas_pendentes,
             motivo_regresso=motivo_regresso,
         )
         return cls.calcular_progresso(novo_status)
@@ -161,40 +170,48 @@ class PedidoService:
         dados: PedidoUpdate,
         usuario_id: UUID | None = None,
     ) -> Pedido:
-        pedido = self.buscar_por_id(pedido_id)
-
-        status_anterior = pedido.status
-
         dados_atualizacao = dados.model_dump(
             exclude_unset=True
         )
 
         try:
+            # The stale-read regression was reproduced in two PostgreSQL
+            # transactions. Reload under the same order lock as DemandService.
+            pedido = self.repository.get_by_id_for_update(pedido_id)
+            if pedido is None:
+                raise PedidoNaoEncontradoError("Pedido não encontrado.")
+            status_anterior = pedido.status
             if status_anterior == StatusPedidoEnum.CONCLUIDO:
                 raise RegistroImutavelException("Demandas CONCLUIDAS sao imutaveis.")
 
+            if usuario_id is None:
+                raise ValueError("usuario_id é obrigatório para atualização de pedido.")
+            # Lazy import avoids the existing DemandService/exception dependency.
+            from app.services.demand_service import DemandService
+            central = DemandService(self.db)
+            usuario = self.users.get_by_id(usuario_id)
+            central._exigir_usuario_ativo(usuario)
+            if not (central._is_admin(usuario) or central._is_cliente_dono(usuario, pedido)
+                    or central._is_responsavel(usuario, pedido)):
+                raise RecursoNaoEncontradoException("Demanda nao encontrada.")
+            if {"titulo", "descricao"} & dados_atualizacao.keys():
+                if not (central._is_admin(usuario) or central._is_cliente_dono(usuario, pedido)):
+                    raise AcessoNegadoException("Somente o cliente ou ADMIN pode editar a demanda.")
+            if "responsavel_id" in dados_atualizacao:
+                central._exigir_perfil(usuario, PerfilEnum.ADMIN)
+                central._obter_usuario_com_perfil(
+                    dados_atualizacao["responsavel_id"], PerfilEnum.TECNICO, "responsavel",
+                )
             novo_status = dados_atualizacao.get("status")
             mudou_status = novo_status is not None and novo_status != status_anterior
-            if mudou_status and usuario_id is None:
-                raise ValueError("usuario_id é obrigatório para alteração de status.")
+            if "status" in dados_atualizacao and novo_status is None:
+                raise ValueError("status não pode ser nulo.")
+            if "percentual_progresso" in dados_atualizacao and not mudou_status:
+                raise ValueError("O progresso é calculado pelas etapas e pelo estado.")
 
             if mudou_status:
-                # Mesmas regras do DemandService.alterar_status: sem isso a edição
-                # genérica deixaria pular estados, homologar com etapas pendentes
-                # ou voltar para EXECUCAO sem a rejeição (e o motivo) do cliente.
-                if (
-                    status_anterior == StatusPedidoEnum.HOMOLOGACAO
-                    and novo_status == StatusPedidoEnum.EXECUCAO
-                ):
-                    raise TransicaoEstadoInvalidaException(
-                        "O retorno de HOMOLOGACAO para EXECUCAO e feito pela rejeicao do cliente."
-                    )
                 etapas = self.etapas_repository.get_by_pedido(pedido.id)
-                ciclo_vida.validar_transicao(
-                    status_anterior,
-                    novo_status,
-                    etapas_pendentes=tuple(e.descricao for e in etapas if not e.concluida),
-                )
+                central.validar_alteracao_status(usuario, pedido, novo_status, etapas)
                 # O progresso acompanha o estado; um percentual enviado junto seria inconsistente.
                 dados_atualizacao["percentual_progresso"] = ciclo_vida.calcular_progresso(
                     novo_status,
@@ -206,6 +223,12 @@ class PedidoService:
                 pedido,
                 dados_atualizacao,
             )
+
+            central._auditar(usuario, pedido, "ATUALIZACAO_PEDIDO_LEGADO", {
+                "campos": sorted(dados_atualizacao),
+                "status_anterior": status_anterior.value if status_anterior is not None else None,
+                "status_novo": novo_status.value if novo_status is not None else None,
+            })
 
             if mudou_status:
                 self.historico_repository.create(

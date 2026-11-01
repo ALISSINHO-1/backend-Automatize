@@ -56,6 +56,7 @@ class DemandService:
         *,
         anexo_service: Any | None = None,
         aprovacao_service: AprovacaoService | None = None,
+        storage_settings=None,
     ) -> None:
         self.db = db
         self.pedidos = PedidoRepository(db)
@@ -65,6 +66,7 @@ class DemandService:
         self.aprovacao = aprovacao_service or AprovacaoService(db)
         # Criado sob demanda: o AnexoService abre o cliente do Supabase Storage.
         self._anexo_service = anexo_service
+        self._storage_settings = storage_settings
 
     # ------------------------------------------------------------------
     # Consultas
@@ -95,6 +97,41 @@ class DemandService:
         """Historico somente leitura das acoes sobre a demanda (SCRUM-75)."""
         pedido = self.obter(usuario, pedido_id)
         return self.auditoria.get_by_pedido(pedido.id)
+
+    def listar_estados(self, usuario: User, pedido_id: UUID) -> list[dict[str, Any]]:
+        """Linha do tempo de estados com autores, preservada do PR #12 da HML."""
+        pedido = self.obter(usuario, pedido_id)
+        eventos: list[dict[str, Any]] = []
+
+        criacao = self.db.execute(
+            select(AuditoriaLog.created_at, User.nome)
+            .join(User, User.id == AuditoriaLog.usuario_id)
+            .where(AuditoriaLog.pedido_id == pedido.id, AuditoriaLog.acao == "CRIACAO_DEMANDA")
+            .order_by(AuditoriaLog.created_at)
+            .limit(1)
+        ).first()
+        if criacao is not None:
+            eventos.append({
+                "estado_anterior": None,
+                "novo_estado": StatusPedidoEnum.PLANEAMENTO,
+                "usuario_responsavel": criacao.nome,
+                "timestamp": criacao.created_at,
+            })
+
+        transicoes = self.db.execute(
+            select(HistoricoStatusPedido, User.nome)
+            .join(User, User.id == HistoricoStatusPedido.usuario_id)
+            .where(HistoricoStatusPedido.pedido_id == pedido.id)
+            .order_by(HistoricoStatusPedido.created_at, HistoricoStatusPedido.id)
+        )
+        for historico, nome in transicoes:
+            eventos.append({
+                "estado_anterior": historico.status_anterior,
+                "novo_estado": historico.status_novo,
+                "usuario_responsavel": nome,
+                "timestamp": historico.created_at,
+            })
+        return eventos
 
     # ------------------------------------------------------------------
     # Cadastro e edicao (SCRUM-20)
@@ -180,20 +217,9 @@ class DemandService:
         self._exigir_usuario_ativo(usuario)
         with self._transacao():
             pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
-            self._exigir_equipe_operacional(usuario, pedido)
-
             status_atual = pedido.status
-            if status_atual == StatusPedidoEnum.HOMOLOGACAO and novo_status == StatusPedidoEnum.EXECUCAO:
-                raise TransicaoEstadoInvalidaException(
-                    "O retorno de HOMOLOGACAO para EXECUCAO e feito pela rejeicao do cliente."
-                )
-
             etapas = self.etapas.get_by_pedido(pedido.id)
-            ciclo_vida.validar_transicao(
-                status_atual,
-                novo_status,
-                etapas_pendentes=tuple(etapa.descricao for etapa in etapas if not etapa.concluida),
-            )
+            self.validar_alteracao_status(usuario, pedido, novo_status, etapas)
 
             pedido.status = novo_status
             self._recalcular_progresso(pedido, etapas)
@@ -203,6 +229,20 @@ class DemandService:
                 "status_novo": novo_status.value,
             })
         return pedido
+
+    def validar_alteracao_status(self, usuario, pedido, novo_status, etapas):
+        """Shared by the REST use case and the legacy compatibility service."""
+        self._exigir_usuario_ativo(usuario)
+        self._exigir_equipe_operacional(usuario, pedido)
+        if pedido.status == StatusPedidoEnum.HOMOLOGACAO and novo_status == StatusPedidoEnum.EXECUCAO:
+            raise TransicaoEstadoInvalidaException(
+                "O retorno de HOMOLOGACAO para EXECUCAO e feito pela rejeicao do cliente."
+            )
+        ciclo_vida.validar_transicao(
+            pedido.status, novo_status,
+            total_etapas=len(etapas),
+            etapas_pendentes=tuple(e.descricao for e in etapas if not e.concluida),
+        )
 
     def aprovar_homologacao(
         self,
@@ -303,7 +343,6 @@ class DemandService:
                 "pedido_id": pedido.id,
                 "descricao": descricao,
                 "criado_por_id": usuario.id,
-                "created_at": self._agora(),
             })
             self._recalcular_progresso(pedido)
             self._auditar(usuario, pedido, "CADASTRO_ETAPA", {
@@ -366,6 +405,7 @@ class DemandService:
         *,
         nome_arquivo: str,
         conteudo: bytes,
+        content_type: str | None = None,
         ocorrencia_id: UUID | None = None,
     ) -> Anexo:
         """Valida o conteudo real do arquivo, envia ao Storage e audita o envio.
@@ -390,6 +430,7 @@ class DemandService:
                 enviado_por_id=usuario.id,
                 nome_arquivo=nome_arquivo,
                 conteudo=conteudo,
+                content_type=content_type,
                 ocorrencia_id=ocorrencia_id,
             )
         except Exception:
@@ -403,7 +444,13 @@ class DemandService:
         if self._anexo_service is None:
             from app.services.anexo_service import AnexoService
 
-            self._anexo_service = AnexoService(self.db)
+            if self._storage_settings is None:
+                self._anexo_service = AnexoService(self.db)
+            else:
+                from app.infrastructure.storage.supabase_storage import SupabaseStorage
+                self._anexo_service = AnexoService(self.db, storage=SupabaseStorage(
+                    configured_settings=self._storage_settings,
+                ))
         return self._anexo_service
 
     # ------------------------------------------------------------------

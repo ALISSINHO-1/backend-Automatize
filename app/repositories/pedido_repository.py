@@ -25,6 +25,13 @@ class PedidoRepository(BaseRepository[Pedido]):
 
     protected_fields = BaseRepository.protected_fields | frozenset({"cliente_id"})
 
+    def get_by_id_for_update(self, pedido_id: UUID) -> Pedido | None:
+        self._require_uuid(pedido_id)
+        return self.db.scalar(
+            select(Pedido).where(Pedido.id == pedido_id).with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
     def get_by_id_for_cliente(self, pedido_id: UUID, *, cliente_id: UUID) -> Pedido | None:
         self._require_uuid(cliente_id)
         return self.get_by_id_for_access_scope(pedido_id, cliente_id=cliente_id)

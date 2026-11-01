@@ -37,7 +37,28 @@ def test_etapas_so_influenciam_progresso_em_execucao():
     (Status.EXECUCAO, Status.HOMOLOGACAO),
 ])
 def test_transicoes_de_avanco_validas(atual, novo):
-    ciclo_vida.validar_transicao(atual, novo)
+    ciclo_vida.validar_transicao(atual, novo, total_etapas=1)
+
+
+@pytest.mark.parametrize("atual", [Status.PLANEAMENTO, Status.EXECUCAO])
+def test_homologacao_exige_ao_menos_uma_etapa(atual):
+    with pytest.raises(TransicaoEstadoInvalidaException):
+        ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO)
+
+
+@pytest.mark.parametrize("total,pendentes", [
+    (1, ("Etapa unica",)),
+    (3, ("Ultima etapa",)),
+])
+def test_homologacao_bloqueia_uma_ou_varias_etapas_pendentes(total, pendentes):
+    with pytest.raises(TransicaoEstadoInvalidaException, match=pendentes[0]):
+        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO,
+                                   total_etapas=total, etapas_pendentes=pendentes)
+
+
+@pytest.mark.parametrize("total", [1, 3])
+def test_homologacao_permite_todas_as_etapas_concluidas(total):
+    ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=total)
 
 
 @pytest.mark.parametrize("atual, novo", [
@@ -75,7 +96,8 @@ def test_regresso_com_motivo_valido():
 def test_homologacao_bloqueada_por_etapas_pendentes():
     with pytest.raises(TransicaoEstadoInvalidaException, match="Testar temperatura"):
         ciclo_vida.validar_transicao(
-            Status.EXECUCAO, Status.HOMOLOGACAO, etapas_pendentes=("Testar temperatura",)
+            Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2,
+            etapas_pendentes=("Testar temperatura",)
         )
 
 
@@ -92,3 +114,7 @@ def test_pedido_service_usa_as_mesmas_regras():
     assert PedidoService.validar_e_transitar(Status.PLANEAMENTO, Status.EXECUCAO) == 50.0
     with pytest.raises(AprovacaoNaoAutorizadaException):
         PedidoService.validar_e_transitar(Status.HOMOLOGACAO, Status.CONCLUIDO)
+    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
+        PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO)
+    assert PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO,
+                                           total_etapas=1) == 85.0
