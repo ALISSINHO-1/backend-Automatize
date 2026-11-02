@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from app.domain.models.enums import StatusPedidoEnum
+from app.domain.models.enums import StatusPedidoEnum, PerfilEnum
+from app.domain.models.user import User
 from app.repositories.historico_status_pedido_repository import (
     HistoricoStatusPedidoRepository,
 )
@@ -55,12 +56,18 @@ def service(
     historico_repository: MagicMock,
     etapas_repository: MagicMock,
 ) -> PedidoService:
-    return PedidoService(
+    repository.get_by_id_for_update.side_effect = lambda pedido_id: repository.get_by_id(pedido_id)
+    instance = PedidoService(
         db=db_session,
         repository=repository,
         historico_repository=historico_repository,
         etapas_repository=etapas_repository,
     )
+    instance.users = MagicMock()
+    instance.users.get_by_id.side_effect = lambda user_id: User(
+        id=user_id, nome="Admin de teste", perfil=PerfilEnum.ADMIN, ativo=True,
+    )
+    return instance
 
 
 def criar_pedido() -> Pedido:
@@ -299,6 +306,7 @@ def test_atualizar_faz_commit(
     resultado = service.atualizar(
         pedido.id,
         dados,
+        usuario_id=uuid4(),
     )
 
     assert resultado is pedido
@@ -334,6 +342,7 @@ def test_atualizar_faz_rollback_em_erro(
         service.atualizar(
             pedido.id,
             dados,
+            usuario_id=uuid4(),
         )
 
     db_session.commit.assert_not_called()
@@ -406,6 +415,7 @@ def test_atualizar_sem_mudar_status_nao_cria_historico(
     resultado = service.atualizar(
         pedido.id,
         dados,
+        usuario_id=uuid4(),
     )
 
     assert resultado is pedido

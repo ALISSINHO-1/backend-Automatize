@@ -14,6 +14,12 @@ class AuditoriaLogRepository(BaseRepository[AuditoriaLog]):
     def __init__(self, db: Session) -> None:
         super().__init__(AuditoriaLog, db)
 
+    def update(self, entity, data):
+        raise ValueError("Logs de auditoria sao imutaveis.")
+
+    def delete(self, entity):
+        raise ValueError("Logs de auditoria sao imutaveis.")
+
     def get_by_pedido(
         self,
         pedido_id: UUID,

@@ -17,7 +17,7 @@ _JWT_PLACEHOLDERS = {
 
 
 def validate_database_url(value: str | None) -> str:
-    """Validate a PostgreSQL URL without opening a connection or exposing it."""
+    """Validate and normalize PostgreSQL to the installed psycopg2 driver."""
     if not value or not value.strip():
         raise ValueError("DATABASE_URL é obrigatória.")
 
@@ -32,13 +32,16 @@ def validate_database_url(value: str | None) -> str:
         raise ValueError("DATABASE_URL deve usar PostgreSQL com o driver psycopg2.")
     if not parsed.database:
         raise ValueError("DATABASE_URL deve informar o banco de dados.")
+    # SQLAlchemy 2.1 defaults bare postgresql:// URLs to psycopg (v3).
+    # Always select the project's psycopg2 dependency, including for Alembic.
+    parsed = parsed.set(drivername="postgresql+psycopg2")
     effective = parameters_from_url(parsed)
     updates = {key: effective[key] for key in ("sslmode", "gssencmode") if key in effective and key not in parsed.query}
     # Also normalize an explicit gssencmode=prefer to prevent GSS taking
     # precedence over TLS. No secret is included in validation errors.
     if "gssencmode" in effective and effective["gssencmode"] != parsed.query.get("gssencmode"):
         updates["gssencmode"] = effective["gssencmode"]
-    return parsed.update_query_dict(updates).render_as_string(hide_password=False) if updates else value
+    return parsed.update_query_dict(updates).render_as_string(hide_password=False)
 
 
 class Settings(BaseSettings):

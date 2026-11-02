@@ -245,9 +245,11 @@ def test_progresso_persistido_acompanha_etapas(db, service, atores, demanda):
     assert salva.concluida_por_id == atores["admin"].id
 
     service.alterar_status(atores["tecnico"], demanda.id, Status.HOMOLOGACAO)
-    assert [e.descricao for e in service.listar_etapas(atores["cliente"], demanda.id)] == [
-        "Etapa 0", "Etapa 1", "Etapa 2", "Etapa 3",
-    ]
+    ordered = list(service.listar_etapas(atores["cliente"], demanda.id))
+    assert {e.descricao for e in ordered} == {"Etapa 0", "Etapa 1", "Etapa 2", "Etapa 3"}
+    # CURRENT_TIMESTAMP is constant inside the surrounding PostgreSQL
+    # transaction. The repository's documented tie-break is UUID, not ordinal.
+    assert ordered == sorted(ordered, key=lambda e: (e.created_at, e.id))
 
 
 def test_regras_de_conclusao_de_etapa(service, atores, demanda, criar_usuario):

@@ -41,6 +41,11 @@ Edite o `.env` local e substitua os valores de exemplo. O comando de cópia pres
 | `SUPABASE_KEY` | Chave autorizada para o bucket | Necessária apenas ao utilizar Storage; nunca expor no frontend. |
 | `CORS_ORIGINS` | Lista JSON de origens | Padrão `[]`; não use `*` com credenciais habilitadas. |
 
+`postgresql://` também é aceito e normalizado internamente para
+`postgresql+psycopg2://`. A API, o Alembic e os testes usam o mesmo validador,
+sem depender do driver padrão da versão do SQLAlchemy. O projeto instala
+`psycopg2-binary`; URLs explícitas com outros drivers não são aceitas.
+
 Gere uma chave localmente com:
 
 ```powershell
@@ -72,6 +77,15 @@ Resposta `200`:
 O token representa o UUID persistido do usuário em `sub`, além de `iat` e `exp`. As consultas validam assinatura HS256 usando a chave da instância da aplicação e carregam o usuário ativo novamente do banco. Perfil e escopo vêm desse usuário persistido.
 
 No Swagger em `/docs`, execute `POST /auth/login`, copie o valor de `access_token`, clique em **Authorize** e cole o token no campo Bearer. Depois execute uma consulta protegida. Clientes HTTP também devem enviar `Authorization: Bearer <token>`.
+
+`GET /auth/me` usa esse mesmo Bearer e retorna somente `id` (UUID em string),
+`nome`, `email` e `perfil` (`ADMIN`, `TECNICO` ou `CLIENTE`). A identidade e o
+perfil vêm do usuário ativo consultado pelo `sub` do JWT; parâmetros de usuário
+enviados pelo cliente não alteram essa identidade. Token ausente, inválido ou
+expirado, usuário inexistente e conta inativa retornam `401` genérico com
+`WWW-Authenticate: Bearer`. A resposta não contém senha, hash ou token.
+O frontend pode usar `perfil` para escolher as telas; a autorização das operações
+continua nas rotas do backend.
 
 Usuário inexistente, senha incorreta, hash inválido ou conta inativa no login retornam `401` genérico e `WWW-Authenticate: Bearer`. Falhas de persistência não são convertidas em `401`. Corpo ausente ou campos inválidos retornam `422` sem incluir valores rejeitados.
 
@@ -162,8 +176,12 @@ Os testes de integração (`tests/integration`) rodam contra um PostgreSQL real:
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql+psycopg2://postgres:senha@localhost:5432/automatize_test"
-python -m pytest -q
+python -m pytest tests -q
 ```
+
+O banco de integração deve estar em loopback (`localhost`, `127.0.0.1` ou
+`::1`), com porta explícita. O guard de isolamento valida o destino e reutiliza
+a normalização da API e do Alembic antes de abrir a conexão.
 
 O frontend precisará tratar UUID como string, enviar o Bearer e usar uma URL base configurável para a API.
 

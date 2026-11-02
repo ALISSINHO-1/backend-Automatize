@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI, Request
+from sqlalchemy.engine import make_url
 
 from app.core.config import Settings
 from app.core.database import (
@@ -37,6 +38,7 @@ def test_database_url_is_required_for_application() -> None:
         "sqlite:///local.db",
         "mysql+pymysql://user:password@localhost/app",
         "postgresql+asyncpg://user:password@localhost/app",
+        "postgresql+psycopg://user:password@localhost/app",
     ],
 )
 def test_database_url_requires_postgresql_psycopg2(database_url: str) -> None:
@@ -87,14 +89,16 @@ def test_jwt_configuration_and_token_expiration() -> None:
         settings(ACCESS_TOKEN_EXPIRE_MINUTES=0)
 
 
-def test_injected_settings_create_engine_without_connecting() -> None:
+@pytest.mark.parametrize("driver", ["postgresql", "postgresql+psycopg2"])
+def test_injected_settings_create_engine_without_connecting(driver) -> None:
     configured = settings(
-        DATABASE_URL="postgresql+psycopg2://injected:secret@db.example:5432/injected_db"
+        DATABASE_URL=f"{driver}://injected:secret@db.example:5432/injected_db"
     )
 
     engine = create_database_engine(configured)
     try:
         assert engine.url.drivername == "postgresql+psycopg2"
+        assert engine.dialect.loaded_dbapi.__name__ == "psycopg2"
         assert engine.url.host == "db.example"
         assert engine.pool._pre_ping is True
         assert engine.hide_parameters is True
@@ -134,7 +138,22 @@ def test_explicit_secure_tls_configuration_is_preserved(sslmode):
 
 def test_local_development_database_does_not_require_tls():
     url = "postgresql://unit:private@localhost/app"
-    assert settings(DATABASE_URL=url).validate_database_configuration() == url
+    checked = make_url(settings(DATABASE_URL=url).validate_database_configuration())
+    assert checked == make_url(url).set(drivername="postgresql+psycopg2")
+    assert "sslmode" not in checked.query
+
+
+@pytest.mark.parametrize("driver", ["postgresql", "postgresql+psycopg2"])
+def test_normalization_preserves_escaped_components_and_connection_options(driver):
+    original = make_url(
+        f"{driver}://unit%40name:p%40ss%3Aword%25@localhost:55417/unit_test"
+        "?sslmode=disable&connect_timeout=3&application_name=pr14%20validation"
+    )
+    checked = settings(DATABASE_URL=original.render_as_string(hide_password=False))
+    normalized = checked.validate_database_configuration()
+
+    assert make_url(normalized) == original.set(drivername="postgresql+psycopg2")
+    assert settings(DATABASE_URL=normalized).validate_database_configuration() == normalized
 
 
 def request_with_factory(factory) -> Request:

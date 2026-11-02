@@ -32,16 +32,40 @@ def test_etapas_so_influenciam_progresso_em_execucao():
     assert ciclo_vida.calcular_progresso(Status.HOMOLOGACAO, 4, 0) == Decimal("85.00")
 
 
-def test_transicoes_de_avanco_validas():
-    ciclo_vida.validar_transicao(Status.PLANEAMENTO, Status.EXECUCAO)
-    ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2)
+@pytest.mark.parametrize("atual, novo, total", [
+    (Status.PLANEAMENTO, Status.EXECUCAO, 0),
+    (Status.PLANEAMENTO, Status.EXECUCAO, 1),
+    (Status.EXECUCAO, Status.HOMOLOGACAO, 1),
+    (Status.EXECUCAO, Status.HOMOLOGACAO, 2),
+])
+def test_transicoes_de_avanco_validas(atual, novo, total):
+    ciclo_vida.validar_transicao(atual, novo, total_etapas=total)
 
 
-def test_homologacao_exige_ao_menos_uma_etapa():
-    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
-        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO)
-    with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
-        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=0)
+@pytest.mark.parametrize("atual", [Status.PLANEAMENTO, Status.EXECUCAO])
+@pytest.mark.parametrize("total", [None, 0], ids=["default-zero", "explicit-zero"])
+def test_homologacao_exige_ao_menos_uma_etapa(atual, total):
+    mensagem = "sem etapas operacionais" if atual == Status.EXECUCAO else "Transicao ilegal"
+    with pytest.raises(TransicaoEstadoInvalidaException, match=mensagem):
+        if total is None:
+            ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO)
+        else:
+            ciclo_vida.validar_transicao(atual, Status.HOMOLOGACAO, total_etapas=total)
+
+
+@pytest.mark.parametrize("total,pendentes", [
+    (1, ("Etapa unica",)),
+    (3, ("Ultima etapa",)),
+])
+def test_homologacao_bloqueia_uma_ou_varias_etapas_pendentes(total, pendentes):
+    with pytest.raises(TransicaoEstadoInvalidaException, match=pendentes[0]):
+        ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO,
+                                   total_etapas=total, etapas_pendentes=pendentes)
+
+
+@pytest.mark.parametrize("total", [1, 3])
+def test_homologacao_permite_todas_as_etapas_concluidas(total):
+    ciclo_vida.validar_transicao(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=total)
 
 
 @pytest.mark.parametrize("atual, novo", [
@@ -79,7 +103,8 @@ def test_regresso_com_motivo_valido():
 def test_homologacao_bloqueada_por_etapas_pendentes():
     with pytest.raises(TransicaoEstadoInvalidaException, match="Testar temperatura"):
         ciclo_vida.validar_transicao(
-            Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2, etapas_pendentes=("Testar temperatura",)
+            Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=2,
+            etapas_pendentes=("Testar temperatura",)
         )
 
 
@@ -98,4 +123,5 @@ def test_pedido_service_usa_as_mesmas_regras():
         PedidoService.validar_e_transitar(Status.HOMOLOGACAO, Status.CONCLUIDO)
     with pytest.raises(TransicaoEstadoInvalidaException, match="sem etapas operacionais"):
         PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO)
-    assert PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO, total_etapas=1) == 85.0
+    assert PedidoService.validar_e_transitar(Status.EXECUCAO, Status.HOMOLOGACAO,
+                                           total_etapas=1) == 85.0

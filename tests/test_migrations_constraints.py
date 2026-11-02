@@ -26,9 +26,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     output = StringIO()
     config = alembic_config(output_buffer=output)
     revisions = ScriptDirectory.from_config(config)
-    assert revisions.get_heads() == ["7b2d4e6f8a10"]
+    assert revisions.get_heads() == ["d8f4a2c6e901"]
     assert [item.revision for item in revisions.walk_revisions()] == [
-        "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
+        "d8f4a2c6e901", "b6e1c8a4d230", "9d4f2a6c8e11", "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
     ]
     command.upgrade(config, "head", sql=True)
     sql = output.getvalue()
@@ -77,10 +77,17 @@ def test_foreign_keys_and_delete_policies_preserve_business_records():
         assert [column.name for column in table.primary_key] == ["id"]
         assert not table.c.id.nullable
         for fk in table.foreign_keys:
+            if fk.constraint.name == "fk_anexos_ocorrencia_pedido":
+                continue
             actual[name, fk.parent.name] = (fk.target_fullname, fk.ondelete)
             if fk.ondelete == "SET NULL":
                 assert fk.parent.nullable
     assert actual == expected
+    pair = next(c for c in Base.metadata.tables["anexos"].foreign_key_constraints
+                if c.name == "fk_anexos_ocorrencia_pedido")
+    assert list(pair.column_keys) == ["ocorrencia_id", "pedido_id"]
+    assert [e.target_fullname for e in pair.elements] == ["ocorrencias.id", "ocorrencias.pedido_id"]
+    assert pair.deferrable is True and pair.initially == "DEFERRED"
     for table, column in (
         ("users", "email"),
         ("pedidos", "codigo_identificador"),

@@ -10,7 +10,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_application_settings, get_current_user
+from app.core.config import Settings
 from app.core.database import get_db
 from app.core.exceptions import (
     AcessoNegadoException,
@@ -61,8 +62,11 @@ def _regras_como_http() -> Iterator[None]:
         raise
 
 
-def get_demand_service(db: Session = Depends(get_db)) -> DemandService:
-    return DemandService(db)
+def get_demand_service(
+    db: Session = Depends(get_db),
+    configured_settings: Settings = Depends(get_application_settings),
+) -> DemandService:
+    return DemandService(db, storage_settings=configured_settings)
 
 
 @router.post("", response_model=DemandaResponse, status_code=status.HTTP_201_CREATED,
@@ -204,7 +208,8 @@ def enviar_evidencia(
     conteudo = arquivo.file.read(TAMANHO_MAXIMO_BYTES + 1)
     with _regras_como_http():
         anexo = service.registrar_evidencia(usuario, id, nome_arquivo=arquivo.filename or "",
-                                            conteudo=conteudo, ocorrencia_id=ocorrencia_id)
+                                            conteudo=conteudo, content_type=arquivo.content_type,
+                                            ocorrencia_id=ocorrencia_id)
     return AnexoResponse.model_validate(anexo)
 
 

@@ -71,13 +71,23 @@ def _homologar(client, auth, demanda_id):
     resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "EXECUCAO"})
     assert resposta.status_code == 200, resposta.text
     etapa = client.post(f"/demandas/{demanda_id}/etapas", headers=auth["tecnico"],
-                        json={"descricao": "Executar servico"}).json()
-    client.post(f"/demandas/{demanda_id}/etapas/{etapa['id']}/conclusao", headers=auth["tecnico"])
+                        json={"descricao": "Executar servico"})
+    assert etapa.status_code == 201, etapa.text
+    concluida = client.post(f"/demandas/{demanda_id}/etapas/{etapa.json()['id']}/conclusao",
+                           headers=auth["tecnico"])
+    assert concluida.status_code == 200, concluida.text
     resposta = client.post(f"/demandas/{demanda_id}/status", headers=auth["tecnico"], json={"status": "HOMOLOGACAO"})
     assert resposta.status_code == 200, resposta.text
 
 
 ACEITE = {"versao_entregavel": "v1.0", "declaracao_aceite": "Aprovo a entrega conforme combinado."}
+
+
+def test_upload_rejects_mismatched_mime_before_storage(client, auth, demanda_id, storage):
+    response = client.post(f"/demandas/{demanda_id}/evidencias", headers=auth["cliente"],
+                           files={"arquivo": ("evidencia.pdf", amostras.pdf(), "image/png")})
+    assert response.status_code == 422
+    assert not storage.arquivos
 
 
 def test_rotas_de_escrita_exigem_token(client, demanda_id):
