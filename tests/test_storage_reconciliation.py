@@ -4,6 +4,7 @@ from uuid import uuid4
 from app.infrastructure.storage.reconciliation import ObjectEvidence, classify_objects, reconcile_inventory
 from scripts.isolated_database import require_isolated_database
 import pytest
+from sqlalchemy.engine import make_url
 
 
 def test_reconciliation_never_deletes_ambiguous_recent_or_referenced_objects():
@@ -55,3 +56,10 @@ def test_incomplete_inventory_does_not_report_false_missing_files():
 def test_isolated_write_guard_rejects_unsafe_destinations(target):
     with pytest.raises(ValueError):
         require_isolated_database(target)
+
+
+@pytest.mark.parametrize("driver", ["postgresql", "postgresql+psycopg2"])
+def test_isolated_write_guard_returns_the_normalized_driver(driver):
+    target = f"{driver}://postgres@localhost:55417/automatize_test?sslmode=disable"
+    checked = make_url(require_isolated_database(target))
+    assert checked == make_url(target).set(drivername="postgresql+psycopg2")

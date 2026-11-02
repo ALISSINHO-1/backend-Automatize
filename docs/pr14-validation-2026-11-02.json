@@ -1,0 +1,432 @@
+{
+  "date": "2026-11-02",
+  "classification": "PARCIAL",
+  "limitation": "/auth/me is absent from PR #14 HEAD and the current branch; GET returns 404.",
+  "pr": "https://github.com/ALISSINHO-1/backend-Automatize/pull/14",
+  "branch": "Henrique-Silva",
+  "base_commit_tested": "da7e4285d4fd7f0c6f9e290adb18c8aacdd77bf2",
+  "tested_uncommitted_file_sha256": {
+    "README.md": "91d03144a32774381acec7c8e3c95e76b490a7078511bbf189af544d2bf33e0f",
+    "app/core/config.py": "518eb6c93bf9c4d234c6fc5dfe54905d02196861315c6bfa2ce9cd74a2cc960d",
+    "scripts/isolated_database.py": "a058db1d35ce97dca1f5fa217f490f46286f6b9b72f488150312f9c96d1676ac",
+    "tests/integration/conftest.py": "c0fa7123e0fba5cd671c4592920ee5e03da32a06d0139b69c907abf6990b873b",
+    "tests/integration/test_migration_upgrade.py": "74f48ab187a96dc537a1f831607733c696396b9f55ac18fe0020d007a6afbe07",
+    "tests/test_config_database.py": "a2b45f7e02b9d40b0e1c50e10949216be62916b8b553825d402f4f7ccbf755e8",
+    "tests/test_storage_reconciliation.py": "e803a2a5100b7b8a58cf2ab634ba5c71b96273145e2e92039abe085ab1ff5999"
+  },
+  "environment": {
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "packages": {
+      "SQLAlchemy": "2.1.6",
+      "alembic": "1.20.1",
+      "psycopg2-binary": "2.9.13",
+      "pytest": "9.2.0",
+      "fastapi": "0.162.0",
+      "starlette": "1.10.0",
+      "httpx": "0.28.1"
+    },
+    "psycopg_installed": false,
+    "is_venv": true,
+    "system_site_packages": false,
+    "masked_database_url": "postgresql+psycopg2://***:***@127.0.0.1:55417/automatize_pr14_test",
+    "database": {
+      "server_version": "17.11 (Debian 17.11-1.pgdg13+2)",
+      "revision": "b6e1c8a4d230",
+      "tables": [
+        {
+          "table_name": "aceites_formais",
+          "rls": true
+        },
+        {
+          "table_name": "alembic_version",
+          "rls": true
+        },
+        {
+          "table_name": "anexos",
+          "rls": true
+        },
+        {
+          "table_name": "auditoria_logs",
+          "rls": true
+        },
+        {
+          "table_name": "etapas_operacionais",
+          "rls": true
+        },
+        {
+          "table_name": "historico_status_pedidos",
+          "rls": true
+        },
+        {
+          "table_name": "ocorrencias",
+          "rls": true
+        },
+        {
+          "table_name": "pedidos",
+          "rls": true
+        },
+        {
+          "table_name": "users",
+          "rls": true
+        }
+      ],
+      "foreign_keys": 16,
+      "trigger_functions": [
+        {
+          "proname": "bloquear_alteracao_aceite_formal",
+          "proconfig": [
+            "search_path=pg_catalog, pg_temp"
+          ],
+          "prosecdef": false,
+          "anon_execute": false,
+          "authenticated_execute": false
+        },
+        {
+          "proname": "proteger_auditoria_log",
+          "proconfig": [
+            "search_path=pg_catalog, pg_temp"
+          ],
+          "prosecdef": false,
+          "anon_execute": false,
+          "authenticated_execute": false
+        },
+        {
+          "proname": "proteger_conclusao_pedido",
+          "proconfig": [
+            "search_path=pg_catalog, pg_temp"
+          ],
+          "prosecdef": false,
+          "anon_execute": false,
+          "authenticated_execute": false
+        }
+      ]
+    },
+    "app_probes": [
+      {
+        "configured_driver": "postgresql",
+        "engine_driver": "postgresql+psycopg2",
+        "dbapi": "psycopg2",
+        "select_one": 1,
+        "health_status": 200,
+        "auth_routes": [
+          "/auth/login"
+        ],
+        "auth_me_status": 404
+      },
+      {
+        "configured_driver": "postgresql+psycopg2",
+        "engine_driver": "postgresql+psycopg2",
+        "dbapi": "psycopg2",
+        "select_one": 1,
+        "health_status": 200,
+        "auth_routes": [
+          "/auth/login"
+        ],
+        "auth_me_status": 404
+      }
+    ]
+  },
+  "pip_install_requirements_exit": 0,
+  "pip_check": "No broken requirements found.",
+  "alembic": {
+    "upgrade_from_empty_exit": 0,
+    "current": "b6e1c8a4d230",
+    "heads": [
+      "b6e1c8a4d230"
+    ],
+    "check_exit": 0,
+    "check": "No new upgrade operations detected.",
+    "migration_files_changed": false
+  },
+  "driver_diagnostic": {
+    "previous_environment_sqlalchemy": "2.0.52",
+    "previous_default_dbapi": "psycopg2",
+    "clean_environment_sqlalchemy": "2.1.6",
+    "clean_default_dbapi": "psycopg",
+    "installed_driver": "psycopg2-binary 2.9.13",
+    "original_failed_tests": [
+      "tests/test_postgres_tls.py::test_final_driver_parameters_are_checked_before_network",
+      "tests/test_postgres_tls.py::test_local_factory_options_remain_available_without_connection"
+    ],
+    "exception_before_fix": "ModuleNotFoundError: No module named 'psycopg'",
+    "initial_full_baseline": {
+      "passed": 496,
+      "failed": 3,
+      "skipped": 127,
+      "warnings": 3
+    },
+    "additional_baseline_failure": "test_application_validates_required_settings_at_startup inherited DATABASE_URL from the validation launcher; passed with that variable removed, without code changes.",
+    "isolated_diagnostic": {
+      "passed": 1,
+      "failed": 2
+    }
+  },
+  "full_suite": {
+    "total": 633,
+    "passed": 633,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warnings": 1,
+    "seconds": 99.125,
+    "modules": {
+      "tests.integration.test_attachment_storage_transactions": {
+        "passed": 4
+      },
+      "tests.integration.test_concurrency_postgres": {
+        "passed": 6
+      },
+      "tests.integration.test_demand_service_db": {
+        "passed": 47
+      },
+      "tests.integration.test_demandas_acoes_api": {
+        "passed": 10
+      },
+      "tests.integration.test_hml_dataset": {
+        "passed": 2
+      },
+      "tests.integration.test_legacy_update_authorization": {
+        "passed": 8
+      },
+      "tests.integration.test_migration_upgrade": {
+        "passed": 2
+      },
+      "tests.integration.test_postgres_security": {
+        "passed": 28
+      },
+      "tests.integration.test_scrum71_homologacao": {
+        "passed": 18
+      },
+      "tests.integration.test_user_queries_api": {
+        "passed": 3
+      },
+      "tests.repositories.test_base_repository": {
+        "passed": 8
+      },
+      "tests.repositories.test_demo_environment_seed": {
+        "passed": 14
+      },
+      "tests.repositories.test_historico_status_pedido_repository": {
+        "passed": 3
+      },
+      "tests.repositories.test_pedido_repository": {
+        "passed": 7
+      },
+      "tests.repositories.test_persistence_security": {
+        "passed": 41
+      },
+      "tests.services.test_anexo_service": {
+        "passed": 47
+      },
+      "tests.services.test_aprovacao_service": {
+        "passed": 19
+      },
+      "tests.services.test_pedido_service": {
+        "passed": 24
+      },
+      "tests.test_attachment_validation": {
+        "passed": 53
+      },
+      "tests.test_auth_login": {
+        "passed": 26
+      },
+      "tests.test_config_database": {
+        "passed": 29
+      },
+      "tests.test_data_api_security": {
+        "passed": 51
+      },
+      "tests.test_demandas_auth": {
+        "passed": 16
+      },
+      "tests.test_demo_user_seed": {
+        "passed": 10
+      },
+      "tests.test_main": {
+        "passed": 9
+      },
+      "tests.test_migrations_constraints": {
+        "passed": 2
+      },
+      "tests.test_postgres_tls": {
+        "passed": 44
+      },
+      "tests.test_regras_ciclo_vida": {
+        "passed": 36
+      },
+      "tests.test_storage": {
+        "passed": 23
+      },
+      "tests.test_storage_reconciliation": {
+        "passed": 11
+      },
+      "tests.test_validacao_arquivos": {
+        "passed": 32
+      }
+    },
+    "skips": []
+  },
+  "generic_test_database_url_integration_suite": {
+    "total": 128,
+    "passed": 128,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warnings": 1,
+    "seconds": 32.694,
+    "modules": {
+      "tests.integration.test_attachment_storage_transactions": {
+        "passed": 4
+      },
+      "tests.integration.test_concurrency_postgres": {
+        "passed": 6
+      },
+      "tests.integration.test_demand_service_db": {
+        "passed": 47
+      },
+      "tests.integration.test_demandas_acoes_api": {
+        "passed": 10
+      },
+      "tests.integration.test_hml_dataset": {
+        "passed": 2
+      },
+      "tests.integration.test_legacy_update_authorization": {
+        "passed": 8
+      },
+      "tests.integration.test_migration_upgrade": {
+        "passed": 2
+      },
+      "tests.integration.test_postgres_security": {
+        "passed": 28
+      },
+      "tests.integration.test_scrum71_homologacao": {
+        "passed": 18
+      },
+      "tests.integration.test_user_queries_api": {
+        "passed": 3
+      }
+    },
+    "skips": []
+  },
+  "focused_driver_suite": {
+    "total": 86,
+    "passed": 86,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "seconds": 2.682,
+    "modules": {
+      "tests.test_config_database": {
+        "passed": 29
+      },
+      "tests.test_postgres_tls": {
+        "passed": 44
+      },
+      "tests.test_storage_reconciliation": {
+        "passed": 11
+      },
+      "tests.test_migrations_constraints": {
+        "passed": 2
+      }
+    },
+    "skips": []
+  },
+  "scrum71": {
+    "zero_stages_blocked": 6,
+    "one_pending_stage_blocked": 3,
+    "multiple_stages_with_pending_blocked": 3,
+    "one_or_more_all_completed_allowed": 6,
+    "entrypoints": [
+      "DemandService",
+      "PedidoService",
+      "JWT API"
+    ]
+  },
+  "quality": {
+    "git_diff_check_exit": 0,
+    "git_diff_cached_check_exit": 0,
+    "conflict_markers": 0,
+    "tracked_secret_scan_findings": 0,
+    "tracked_bytecode_files": 0,
+    "new_environment_files": 0,
+    "supabase_shared_connections_or_changes": false,
+    "business_rule_changes": false,
+    "committed": false,
+    "pushed": false,
+    "merged": false
+  },
+  "installed_packages": [
+    "alembic==1.20.1",
+    "annotated-doc==0.0.5",
+    "annotated-types==0.8.0",
+    "anyio==4.16.0",
+    "bcrypt==4.3.0",
+    "certifi==2026.10.23",
+    "cffi==2.1.1",
+    "click==8.5.0",
+    "colorama==0.4.6",
+    "cryptography==50.0.2",
+    "deprecation==2.1.0",
+    "ecdsa==0.19.2",
+    "fastapi==0.162.0",
+    "h11==0.16.0",
+    "h2==4.4.1",
+    "hpack==4.2.0",
+    "httpcore==1.0.9",
+    "httptools==0.9.0",
+    "httpx==0.28.1",
+    "hyperframe==6.1.0",
+    "idna==3.20",
+    "iniconfig==2.3.1",
+    "Mako==1.4.3",
+    "MarkupSafe==3.0.4",
+    "multidict==7.2.1",
+    "olefile==0.47",
+    "opentelemetry-api==1.45.2",
+    "packaging==26.3",
+    "passlib==1.7.4",
+    "pillow==13.0.0",
+    "pluggy==1.7.0",
+    "postgrest==2.33.0",
+    "propcache==0.5.4",
+    "psycopg2-binary==2.9.13",
+    "pyasn1==0.6.5",
+    "pycparser==3.12",
+    "pydantic==2.14.2",
+    "pydantic-settings==2.16.2",
+    "pydantic_core==2.50.2",
+    "Pygments==2.21.0",
+    "PyJWT==2.15.1",
+    "pypdf==6.21.4",
+    "pytest==9.2.0",
+    "python-dotenv==1.2.4",
+    "python-jose==3.5.0",
+    "python-multipart==0.0.33",
+    "PyYAML==6.0.3",
+    "realtime==2.33.0",
+    "rsa==4.9.1",
+    "six==1.17.0",
+    "SQLAlchemy==2.1.6",
+    "starlette==1.10.0",
+    "storage3==2.33.0",
+    "StrEnum==0.5.0",
+    "supabase==2.33.0",
+    "supabase-auth==2.33.0",
+    "supabase-functions==2.33.0",
+    "typing-inspection==0.4.4",
+    "typing_extensions==4.16.0",
+    "uvicorn==0.54.0",
+    "watchfiles==1.3.0",
+    "websockets==15.0.1",
+    "yarl==1.25.1"
+  ],
+  "disposable_container": {
+    "name": "automatize-pr14-postgres17",
+    "image": "postgres:17",
+    "bind": "127.0.0.1:55417",
+    "final_state": "exited",
+    "data_retained_locally": true,
+    "preexisting_containers_changed": false
+  }
+}

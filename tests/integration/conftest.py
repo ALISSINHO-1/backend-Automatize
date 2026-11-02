@@ -29,9 +29,9 @@ TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 def engine():
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL não definida; testes de integração com PostgreSQL ignorados.")
-    require_isolated_database(TEST_DATABASE_URL)
+    database_url = require_isolated_database(TEST_DATABASE_URL)
 
-    database_engine = create_engine(TEST_DATABASE_URL, hide_parameters=True)
+    database_engine = create_engine(database_url, hide_parameters=True)
     with database_engine.begin() as connection:
         connection.exec_driver_sql("""
             DO $$ BEGIN
@@ -49,7 +49,7 @@ def engine():
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(ROOT / "alembic"))
     database_url_original = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ["DATABASE_URL"] = database_url
     try:
         command.upgrade(config, "head")
     finally:
