@@ -40,7 +40,7 @@ Os testes normais desfazem suas transações; testes de concorrência precisam d
 commits visíveis entre conexões e deixam dados sintéticos até destruir o container.
 Testes de upgrade e seed criam outros bancos vazios nesse mesmo cluster.
 
-Head final: `b6e1c8a4d230`. As duas migrations novas recusam downgrade automático:
+Head final: `d8f4a2c6e901`. As migrations de hardening recusam downgrade automático:
 não é seguro reconstruir grants anteriores ou desproteger evidência por adivinhação.
 Esse bloqueio é explícito; não é uma promessa de downgrade testado.
 
@@ -89,6 +89,10 @@ EXECUTE de funções. O ensaio de 01/11/2026 executou pg_restore com `--no-owner
 e `--exit-on-error`, preservando ACLs; catálogo de acesso e hashes coincidiram.
 O helper anterior usa `--no-privileges` e verifica somente dados/triggers;
 esse modo não deve ser interpretado como validação da política de acesso.
+Na finalização de 02/11, o helper foi atualizado: preserva ACLs e compara
+RLS, grants, policies e proteção das três funções, além dos dados/triggers.
+Use `--audit-label 2026-11-02` com um contêiner criado nessa data. O destino
+continua sendo um banco novo e vazio, sem `--clean` e sem sobrescrever a origem.
 
 A restauração cobre somente PostgreSQL sintético. Não equivale a restore de
 Supabase Auth, configuração do provedor, secrets ou objetos do Storage. Um plano
@@ -97,7 +101,7 @@ de desastre de produção precisa desses itens, RPO/RTO e ensaio próprio aprova
 ## Reconciliação de anexos
 
 ```powershell
-python -m scripts.reconcile_storage
+python -m scripts.reconcile_storage --dry-run --output caminho-local-ainda-inexistente.json
 ```
 
 Esse comando é exclusivamente READ ONLY, com snapshot REPEATABLE READ de
@@ -105,7 +109,11 @@ metadados PostgreSQL/Storage. Não baixa arquivos. Exporta somente hash do camin
 e classificação. Ausência de timestamps, inventário incompleto, caminhos
 desconhecidos, objeto recente (24 h) ou pedido ainda existente impedem inferência
 de limpeza. Mesmo um candidato continua com `delete: false`. Guardar a saída
-JSON em local operacional restrito para revisão. Não existe opção `--apply`.
+JSON em local operacional restrito para revisão. O argumento `--apply` é
+rejeitado antes de carregar configurações ou conectar. Não existe implementação
+destrutiva. O recibo inclui IDs opacos, hashes de caminhos, timestamps e
+fingerprint do inventário; não autoriza exclusão. Arquivos de saída são criados
+de forma exclusiva para não substituir evidência.
 O inventário agora compara as duas direções: objeto sem registro e registro sem
 objeto no bucket configurado. Sem snapshot completo, não conclui ausência de
 arquivo. A comparação usa metadados do Storage, sem baixar ou excluir conteúdo.

@@ -1,4 +1,7 @@
--- REVIEW/INTEGRATION ARTIFACT. Not executed by startup, tests or Alembic.
+-- HISTORICAL ARTIFACT: superseded by integrated Alembic 9d4f2a6c8e11.
+-- DO NOT EXECUTE alongside the migration chain or create a duplicate migration.
+-- The comments below preserve the pre-integration review context of 2026-10-31.
+-- Not executed by startup, tests or Alembic.
 -- RLS is already implemented by origin/HML:7b2d4e6f8a10, which depends on
 -- 3c9e7a1b5d20. Reuse that original chain in the separately approved item 5.
 -- This permission-only supplement MUST NOT recreate or enable RLS itself.

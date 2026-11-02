@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, text # type: ignore
+from sqlalchemy import DateTime, Enum, ForeignKey, Text, UniqueConstraint, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 
@@ -14,6 +14,7 @@ from app.domain.models.enums import (
 
 class Ocorrencia(Base):
     __tablename__ = "ocorrencias"
+    __table_args__ = (UniqueConstraint("id", "pedido_id", name="uq_ocorrencias_id_pedido_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

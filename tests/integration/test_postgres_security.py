@@ -15,7 +15,7 @@ def test_domain_grants_are_closed_and_rls_enabled(engine, role, table):
     with engine.connect() as connection:
         flags = connection.execute(text("""
             SELECT c.relrowsecurity,
-                has_table_privilege(:role,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS any_grant,
+                has_table_privilege(:role,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') AS any_grant,
                 has_any_column_privilege(:role,c.oid,'SELECT,INSERT,UPDATE,REFERENCES') AS column_grant
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relname=:table
@@ -23,8 +23,18 @@ def test_domain_grants_are_closed_and_rls_enabled(engine, role, table):
         assert flags["relrowsecurity"] is True
         assert not flags["any_grant"] and not flags["column_grant"]
     for statement in (f'SELECT * FROM public.{table}',
+                      f'INSERT INTO public.{table} DEFAULT VALUES',
                       f'DELETE FROM public.{table} WHERE false',
                       f'UPDATE public.{table} SET ' + ('version_num=version_num' if table == 'alembic_version' else 'id=id') + ' WHERE false'):
+        with engine.connect() as connection:
+            connection.exec_driver_sql(f'SET LOCAL ROLE {role}')
+            with pytest.raises(DBAPIError) as error:
+                connection.exec_driver_sql(statement)
+            assert error.value.orig.pgcode == "42501"
+    # RLS and row triggers do not protect TRUNCATE or ownership operations.
+    # These attempts run only through the guarded disposable engine fixture.
+    for statement in (f'TRUNCATE TABLE public.{table}',
+                      f'ALTER TABLE public.{table} ADD COLUMN security_probe integer'):
         with engine.connect() as connection:
             connection.exec_driver_sql(f'SET LOCAL ROLE {role}')
             with pytest.raises(DBAPIError) as error:
@@ -40,12 +50,22 @@ def test_trigger_functions_have_safe_paths_and_are_not_definer(engine):
                 has_function_privilege('authenticated',p.oid,'EXECUTE') AS authenticated
             FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
             WHERE n.nspname='public' AND p.proname IN
-                ('bloquear_alteracao_aceite_formal','proteger_conclusao_pedido')
+                ('bloquear_alteracao_aceite_formal','proteger_conclusao_pedido','proteger_auditoria_log')
         """).mappings().all()
-        assert len(rows) == 2
+        assert len(rows) == 3
         for row in rows:
             assert row["proconfig"] == ["search_path=pg_catalog, pg_temp"]
             assert not row["prosecdef"] and not row["anon"] and not row["authenticated"]
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated"])
+@pytest.mark.parametrize("function", ["bloquear_alteracao_aceite_formal", "proteger_conclusao_pedido", "proteger_auditoria_log"])
+def test_client_roles_cannot_execute_protected_trigger_functions(engine, role, function):
+    with engine.connect() as connection:
+        connection.exec_driver_sql(f"SET LOCAL ROLE {role}")
+        with pytest.raises(DBAPIError) as error:
+            connection.exec_driver_sql(f"SELECT public.{function}()")
+        assert error.value.orig.pgcode == "42501"
 
 
 @pytest.mark.parametrize("role", ["anon", "authenticated"])

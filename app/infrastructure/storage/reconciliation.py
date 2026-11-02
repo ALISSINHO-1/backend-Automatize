@@ -13,6 +13,7 @@ class ObjectEvidence:
     path: str
     created_at: datetime | None
     updated_at: datetime | None
+    storage_id: UUID | None = None
 
 
 def classify_objects(objects, references, order_ids, *, now=None, complete=False):
@@ -59,6 +60,9 @@ def reconcile_inventory(objects, references, order_ids, *, now=None, complete=Fa
     absence, so their missing-object counts remain unknown.
     """
     objects = list(objects)
+    ids = [str(obj.storage_id) for obj in objects if obj.storage_id is not None]
+    if len({obj.path for obj in objects}) != len(objects) or len(set(ids)) != len(ids):
+        raise ValueError("Ambiguous Storage inventory; duplicate objects detected.")
     references = set(references)
     findings = classify_objects(objects, references, order_ids, now=now, complete=complete)
     paths = {obj.path for obj in objects}

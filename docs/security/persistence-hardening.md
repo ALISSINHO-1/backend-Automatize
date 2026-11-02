@@ -1,6 +1,46 @@
 # Persistência: hardening de Data API, anexos e TLS
 
-## Data API: aplicação pendente de integração
+## Estado revisado em 02/11/2026
+
+As correções já estão integradas à cadeia Alembic da branch Henrique-Silva:
+`7b2d4e6f8a10` habilita RLS, `9d4f2a6c8e11` fixa search_path e revoga grants,
+e `b6e1c8a4d230` protege a auditoria. A finalização acrescentou
+`d8f4a2c6e901` para o vínculo composto de anexo/ocorrência/pedido; esse é o novo head.
+Não criar migrations equivalentes nem executar o SQL manual antigo.
+`data_api_hardening.sql` permanece apenas como artefato histórico.
+
+A leitura atual do Supabase confirmou revisão `3c9e7a1b5d20`, três tabelas sem
+RLS e funções sem search_path fixo: **implementado em código não significa
+aplicado no Supabase**. Não houve gravação nesse ambiente.
+
+O auditor `python -m scripts.audit_technical_state --storage-probe` usa conexão
+com default_transaction_read_only, limites de tempo e confirmação de READ ONLY.
+Exporta metadados de permissões, PUBLIC/colunas, defaults, roles, triggers,
+functions, policies e bucket, sem URLs, credenciais ou registros de usuários.
+Código de saída 0 significa inspeção concluída; não significa ambiente seguro.
+Para avaliar os critérios de acesso das tabelas, há também
+`python -m scripts.audit_data_api_access` (0: sem findings nesses critérios;
+1: findings; 2: indisponível). Nenhum deles substitui testes reais de privilégios.
+
+A role SQL atual tem BYPASSRLS/CREATEROLE/CREATEDB e ownership. Separar migrator
+de runtime continua necessário antes de afirmar menor privilégio em produção.
+Os testes novos exercitam uma proposta de runtime sem ownership/DDL, com
+BYPASSRLS para a arquitetura backend-only existente e apenas SELECT/INSERT em
+aceite, auditoria e histórico. Essa role existe somente durante transações de
+testes descartáveis; não foi criada/configurada no Supabase.
+
+O bucket auditado está privado, sem policies para clientes; os grants de CRUD
+do schema Storage não equivalem a acesso permitido quando RLS nega as linhas.
+Não revogar grants globais do schema gerenciado nem criar policies permissivas
+para silenciar alertas. Nenhum objeto foi enviado, baixado ou excluído.
+
+Resultados e pendências atuais:
+[relatório final de Henrique](../finalizacao-henrique-2026-11-02.md).
+
+## Data API: histórico da auditoria de 31/10/2026
+
+O texto desta seção registra o estado e o plano anteriores à integração. As
+restrições de integração e de ambiente abaixo não descrevem o estado atual.
 
 O acesso de domínio desta branch passa pelo FastAPI/SQLAlchemy. Não há chamadas
 de PostgREST para users, pedidos, ocorrências, anexos, aceites, auditoria, histórico

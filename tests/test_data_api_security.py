@@ -21,7 +21,7 @@ def test_backend_only_access_passes_catalog_assessment():
 
 @pytest.mark.parametrize("table", ["historico_status_pedidos", "etapas_operacionais", "aceites_formais", "auditoria_logs"])
 @pytest.mark.parametrize("role", ["anon", "authenticated"])
-@pytest.mark.parametrize("privilege", ["select", "insert", "update", "delete", "truncate"])
+@pytest.mark.parametrize("privilege", ["select", "insert", "update", "delete", "truncate", "maintain"])
 def test_untrusted_direct_access_is_flagged_even_if_rls_is_enabled(table, role, privilege):
     catalog = restricted_catalog()
     target = next(row for row in catalog if row["table_name"]==table and row["role_name"]==role)

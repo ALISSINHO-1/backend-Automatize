@@ -60,8 +60,11 @@ def run_simultaneously(engine, user_id, operations):
 
     def worker(operation):
         with Session(engine) as db:
-            db.execute(text("SET lock_timeout='5s'"))
-            db.execute(text("SET statement_timeout='10s'"))
+            # Service commits return connections to the pool. Keep deadlines
+            # transaction-local so later migration/CREATE DATABASE tests do not
+            # inherit a worker's short timeout.
+            db.execute(text("SET LOCAL lock_timeout='5s'"))
+            db.execute(text("SET LOCAL statement_timeout='10s'"))
             user = db.get(User, user_id)
             service = DemandService(db)
             barrier.wait(timeout=10)
