@@ -10,7 +10,7 @@ from app.core.exceptions import (
     RegraNegocioException,
     TransicaoEstadoInvalidaException,
 )
-from app.domain.models.enums import StatusPedidoEnum
+from app.domain.models.enums import StatusPedidoEnum, TipoOcorrenciaEnum
 
 
 PROGRESSO_POR_ESTADO: dict[StatusPedidoEnum, Decimal] = {
@@ -64,6 +64,7 @@ def validar_transicao(
     total_etapas: int = 0,
     etapas_pendentes: tuple[str, ...] = (),
     motivo_regresso: str | None = None,
+    ocorrencias_abertas: int = 0,
 ) -> None:
     """Valida a transicao pela maquina de estados.
 
@@ -98,6 +99,35 @@ def validar_transicao(
         raise TransicaoEstadoInvalidaException(
             "Nao e permitido enviar para HOMOLOGACAO com etapas operacionais pendentes: "
             f"{', '.join(etapas_pendentes)}."
+        )
+
+    # SCRUM-98: erro ou pedido de correcao em aberto significa entrega incompleta;
+    # o cliente so homologa depois que a correcao foi registrada como resolvida.
+    if novo_status == StatusPedidoEnum.HOMOLOGACAO and ocorrencias_abertas > 0:
+        raise TransicaoEstadoInvalidaException(
+            "Nao e permitido enviar para HOMOLOGACAO com ocorrencias em aberto: "
+            f"resolva as {ocorrencias_abertas} ocorrencia(s) pendente(s)."
+        )
+
+
+def validar_tipo_ocorrencia_manual(tipo: TipoOcorrenciaEnum) -> None:
+    """REGRESSO_ESTADO nasce apenas da rejeicao da homologacao; registra-lo a mao
+    criaria um regresso sem mudanca de estado correspondente."""
+    if tipo == TipoOcorrenciaEnum.REGRESSO_ESTADO:
+        raise RegraNegocioException(
+            "Ocorrencias de regresso sao geradas pela rejeicao da homologacao. "
+            "Registre ERRO ou SOLICITACAO_CORRECAO."
+        )
+
+
+def validar_estado_para_ocorrencia(status: StatusPedidoEnum) -> None:
+    """Ocorrencias novas so durante o trabalho. Em HOMOLOGACAO o caminho e a
+    rejeicao (que ja gera o regresso); assim nunca ha ocorrencia aberta na
+    homologacao e o aceite nao conclui uma demanda com pendencia."""
+    if status not in (StatusPedidoEnum.PLANEAMENTO, StatusPedidoEnum.EXECUCAO):
+        raise TransicaoEstadoInvalidaException(
+            f"Ocorrencias so podem ser registradas em PLANEAMENTO ou EXECUCAO. Estado atual: {status.value}. "
+            "Em HOMOLOGACAO, solicite a correcao rejeitando a homologacao."
         )
 
 

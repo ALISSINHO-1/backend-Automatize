@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.core.exceptions import (
     AcessoNegadoException,
     AprovacaoNaoAutorizadaException,
+    OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
     RegraNegocioException,
@@ -30,7 +31,10 @@ from app.domain.schemas.demanda_acoes_schema import (
     DemandaUpdateRequest,
     EtapaCreateRequest,
     EtapaResponse,
+    OcorrenciaCreateRequest,
+    OcorrenciaResponse,
     RejeicaoRequest,
+    ResolucaoOcorrenciaRequest,
     ResponsavelRequest,
     StatusUpdateRequest,
 )
@@ -46,6 +50,7 @@ _STATUS_POR_EXCECAO: tuple[tuple[type[RegraNegocioException], int], ...] = (
     (AcessoNegadoException, status.HTTP_403_FORBIDDEN),
     (AprovacaoNaoAutorizadaException, status.HTTP_403_FORBIDDEN),
     (RegistroImutavelException, status.HTTP_409_CONFLICT),
+    (OperacaoConflitanteException, status.HTTP_409_CONFLICT),
     (TransicaoEstadoInvalidaException, status.HTTP_409_CONFLICT),
     (RegraNegocioException, 422),
 )
@@ -145,7 +150,8 @@ def rejeitar_homologacao(
     return DemandaResponse.model_validate(pedido)
 
 
-@router.put("/{id}/responsavel", response_model=DemandaResponse, summary="Atribui o tecnico responsavel")
+@router.put("/{id}/responsavel", response_model=DemandaResponse,
+            summary="Atribui ou reatribui o tecnico responsavel (reatribuicao exige motivo)")
 def atribuir_responsavel(
     id: UUID,
     dados: ResponsavelRequest,
@@ -153,7 +159,8 @@ def atribuir_responsavel(
     service: DemandService = Depends(get_demand_service),
 ) -> DemandaResponse:
     with _regras_como_http():
-        pedido = service.atribuir_responsavel(usuario, id, responsavel_id=dados.responsavel_id)
+        pedido = service.atribuir_responsavel(usuario, id, responsavel_id=dados.responsavel_id,
+                                              motivo=dados.motivo)
     return DemandaResponse.model_validate(pedido)
 
 
@@ -223,3 +230,43 @@ def listar_historico(
     with _regras_como_http():
         registros = service.listar_auditoria(usuario, id)
     return [AuditoriaResponse.model_validate(registro) for registro in registros]
+
+
+@router.get("/{id}/ocorrencias", response_model=list[OcorrenciaResponse],
+            summary="Lista as ocorrencias (erros, correcoes e regressos) da demanda")
+def listar_ocorrencias(
+    id: UUID,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> list[OcorrenciaResponse]:
+    with _regras_como_http():
+        ocorrencias = service.listar_ocorrencias(usuario, id)
+    return [OcorrenciaResponse.model_validate(ocorrencia) for ocorrencia in ocorrencias]
+
+
+@router.post("/{id}/ocorrencias", response_model=OcorrenciaResponse, status_code=status.HTTP_201_CREATED,
+             summary="Registra um erro ou pedido de correcao (bloqueia a HOMOLOGACAO ate ser resolvido)")
+def registrar_ocorrencia(
+    id: UUID,
+    dados: OcorrenciaCreateRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> OcorrenciaResponse:
+    with _regras_como_http():
+        ocorrencia = service.registrar_ocorrencia(usuario, id, tipo=dados.tipo, descricao=dados.descricao)
+    return OcorrenciaResponse.model_validate(ocorrencia)
+
+
+@router.post("/{id}/ocorrencias/{ocorrencia_id}/resolucao", response_model=OcorrenciaResponse,
+             summary="Registra a correcao de uma ocorrencia")
+def resolver_ocorrencia(
+    id: UUID,
+    ocorrencia_id: UUID,
+    dados: ResolucaoOcorrenciaRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> OcorrenciaResponse:
+    with _regras_como_http():
+        ocorrencia = service.resolver_ocorrencia(usuario, id, ocorrencia_id,
+                                                 descricao_resolucao=dados.descricao_resolucao)
+    return OcorrenciaResponse.model_validate(ocorrencia)

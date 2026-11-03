@@ -517,7 +517,8 @@ def test_atribuicao_somente_admin_e_somente_tecnico_ativo(db, service, atores, d
     with pytest.raises(RecursoNaoEncontradoException):
         service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["cliente"].id)
 
-    service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["outro_tecnico"].id)
+    service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["outro_tecnico"].id,
+                                 motivo="Tecnico anterior de ferias")
 
     assert _recarregar(db, demanda).responsavel_id == atores["outro_tecnico"].id
     log = db.scalars(select(AuditoriaLog).where(AuditoriaLog.acao == "ATRIBUICAO_RESPONSAVEL",
@@ -527,6 +528,7 @@ def test_atribuicao_somente_admin_e_somente_tecnico_ativo(db, service, atores, d
     assert log.detalhes == {
         "responsavel_anterior": str(atores["tecnico"].id),
         "responsavel_novo": str(atores["outro_tecnico"].id),
+        "motivo": "Tecnico anterior de ferias",
     }
 
 

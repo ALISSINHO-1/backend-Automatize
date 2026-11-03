@@ -1,5 +1,6 @@
-from app.core.exceptions import AcessoNegadoException, RecursoNaoEncontradoException
+from app.core.exceptions import RecursoNaoEncontradoException
 from app.domain.models.enums import PerfilEnum
+from app.domain.regras import autorizacao
 from app.repositories.user_repository import UserRepository
 
 
@@ -9,8 +10,7 @@ class UserQueryService:
 
     @staticmethod
     def _require(user, profile):
-        if user.ativo is not True or user.perfil != profile:
-            raise AcessoNegadoException("Perfil sem permissao para esta consulta.")
+        autorizacao.exigir_perfil(user, profile)
 
     def technicians(self, user, *, offset=0, limit=100):
         self._require(user, PerfilEnum.ADMIN)

@@ -30,3 +30,7 @@ class RecursoNaoEncontradoException(RegraNegocioException):
 class ArquivoInvalidoException(RegraNegocioException):
     """Lancada quando o conteudo enviado nao corresponde a um formato aceito."""
     pass
+
+class OperacaoConflitanteException(RegraNegocioException):
+    """Lancada quando a operacao conflita com o estado atual (ex.: sem efeito ou ja feita)."""
+    pass

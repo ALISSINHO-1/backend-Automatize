@@ -212,15 +212,28 @@ As rotas de aprovação e de upload estão descritas em "Regras de negócio e ro
 | `POST /demandas` | CLIENTE (para si) ou ADMIN (informando `cliente_id`) | Nasce em `PLANEAMENTO` com 15%. |
 | `PATCH /demandas/{id}` | Cliente da demanda ou ADMIN | Título ≥ 3 e descrição ≥ 5 caracteres. |
 | `DELETE /demandas/{id}` | ADMIN | Demandas concluídas não podem ser excluídas. |
-| `PUT /demandas/{id}/responsavel` | ADMIN | O responsável deve ser um TECNICO ativo. |
-| `POST /demandas/{id}/status` | Técnico responsável ou ADMIN | `PLANEAMENTO → EXECUCAO → HOMOLOGACAO`; etapas pendentes bloqueiam a homologação. `CONCLUIDO` só pelo aceite. |
+| `PUT /demandas/{id}/responsavel` | ADMIN | O responsável deve ser um TECNICO ativo e diferente do atual. Trocar um técnico já atribuído exige `motivo` (≥ 10 caracteres), gravado na auditoria. |
+| `POST /demandas/{id}/status` | Técnico responsável ou ADMIN | `PLANEAMENTO → EXECUCAO → HOMOLOGACAO`; etapas pendentes ou ocorrências em aberto bloqueiam a homologação. `CONCLUIDO` só pelo aceite. |
+| `GET/POST /demandas/{id}/ocorrencias` | Registro: cliente da demanda, técnico responsável ou ADMIN (leitura: quem vê a demanda) | Tipos `ERRO` ou `SOLICITACAO_CORRECAO`, descrição ≥ 10 caracteres, só em `PLANEAMENTO`/`EXECUCAO` (em `HOMOLOGACAO` a correção é pedida pela rejeição). |
+| `POST /demandas/{id}/ocorrencias/{ocorrencia_id}/resolucao` | Técnico responsável ou ADMIN | Registra a correção (`descricao_resolucao` ≥ 10). Vale também para o `REGRESSO_ESTADO` gerado pela rejeição. |
 | `GET/POST /demandas/{id}/etapas`, `POST .../etapas/{etapa_id}/conclusao` | Técnico responsável ou ADMIN (leitura: quem vê a demanda) | Etapas em `PLANEAMENTO`/`EXECUCAO`; conclusão só em `EXECUCAO`. Em `EXECUCAO`, progresso = 15 + 70 × concluídas/total. |
 | `POST /demandas/{id}/aceite` | Somente o cliente da demanda | Exige `HOMOLOGACAO`; grava aceite com hash SHA-256 e conclui com 100%. |
 | `POST /demandas/{id}/rejeicao` | Somente o cliente da demanda | Motivo ≥ 10 caracteres; volta para `EXECUCAO` e registra ocorrência `REGRESSO_ESTADO`. |
 | `POST /demandas/{id}/evidencias` | Cliente, técnico responsável ou ADMIN | Multipart `arquivo`; aceita `pdf`, `png`, `jpg`, `jpeg` e `docx` até 10 MB. |
 | `GET /demandas/{id}/historico` | Quem vê a demanda | Auditoria somente leitura, com o autor de cada ação. |
 
-Demandas fora do escopo do usuário respondem 404; falta de permissão responde 403; violação de estado ou de imutabilidade responde 409; dados inválidos respondem 422. Corpos com campos desconhecidos (por exemplo um `cliente_id` no aceite) são recusados com 422.
+As regras de perfil e de vínculo com a demanda (quem vê, quem executa, quem edita) ficam num único módulo, `app/domain/regras/autorizacao.py` (SCRUM-95), usado pelas consultas e pelas rotas de escrita.
+
+**Gestão de usuários (SCRUM-96/99), somente ADMIN:**
+
+| Rota | Regra |
+| --- | --- |
+| `GET /usuarios?perfil=&ativo=` | Lista com e-mail, perfil e status; nunca o hash da senha. |
+| `POST /usuarios` | `nome`, `email` (normalizado para minúsculas, único), `senha` (≥ 8) e `perfil`. |
+| `PATCH /usuarios/{id}/perfil` | Não vale para a própria conta nem para o último ADMIN ativo; técnico com demanda em aberto ou cliente com demandas não muda de perfil. |
+| `PATCH /usuarios/{id}/ativo` | Inativo não consegue logar nem usar tokens já emitidos. Não vale para a própria conta nem para o último ADMIN ativo; técnico com demanda em aberto precisa ter as demandas reatribuídas antes. |
+
+Demandas fora do escopo do usuário respondem 404; falta de permissão responde 403; violação de estado ou de imutabilidade, ou operação sem efeito (ex.: atribuir o mesmo técnico), responde 409; dados inválidos respondem 422. Corpos com campos desconhecidos (por exemplo um `cliente_id` no aceite) são recusados com 422.
 
 **Validação de evidências.** O conteúdo real precisa ter a assinatura do formato declarado (um executável renomeado para `.png` é recusado). PDFs com JavaScript, ações ou arquivos embutidos e DOCX com macros são recusados, e o DOCX tem limite de conteúdo descompactado. O `content-type` enviado ao Storage é o detectado, não o informado pelo cliente. O `.doc` legado deixou de ser aceito por não permitir verificar macros com segurança.
 

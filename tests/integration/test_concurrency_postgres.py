@@ -134,8 +134,9 @@ def test_concurrent_assignment_retains_both_audited_changes(engine, committed_or
         db.add_all(techs)
         db.commit()
         ids = [t.id for t in techs]
+    # Whichever runs second is a reassignment, which requires a reason (SCRUM-97).
     operations = [lambda service, user, target=target: service.atribuir_responsavel(
-        user, order_id, responsavel_id=target,
+        user, order_id, responsavel_id=target, motivo="Redistribuicao da carga da equipe",
     ) for target in ids]
     assert run_simultaneously(engine, admin_id, operations) == ["ok", "ok"]
     with Session(engine) as db:

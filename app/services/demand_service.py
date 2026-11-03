@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 
-from sqlalchemy import select # type: ignore
+from sqlalchemy import func, select # type: ignore
 from sqlalchemy.exc import IntegrityError # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
 from app.core.exceptions import (
     AcessoNegadoException,
     AprovacaoNaoAutorizadaException,
+    OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
     TransicaoEstadoInvalidaException,
@@ -26,7 +27,7 @@ from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 from app.domain.models.ocorrencia import Ocorrencia
 from app.domain.models.pedido import Pedido
 from app.domain.models.user import User
-from app.domain.regras import ciclo_vida
+from app.domain.regras import autorizacao, ciclo_vida
 from app.repositories.auditoria_log_repository import AuditoriaLogRepository
 from app.repositories.etapa_operacional_repository import EtapaOperacionalRepository
 from app.repositories.pedido_repository import PedidoRepository
@@ -183,8 +184,7 @@ class DemandService:
 
         with self._transacao():
             pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
-            if not self._is_admin(usuario) and not self._is_cliente_dono(usuario, pedido):
-                raise AcessoNegadoException("Somente o cliente da demanda ou um ADMIN pode edita-la.")
+            autorizacao.exigir_dono_ou_admin(usuario, pedido, "edita-la")
             self._bloquear_se_concluido(pedido, "editar a demanda")
 
             anterior = {"titulo": pedido.titulo, "descricao": pedido.descricao}
@@ -244,6 +244,7 @@ class DemandService:
             pedido.status, novo_status,
             total_etapas=len(etapas),
             etapas_pendentes=tuple(e.descricao for e in etapas if not e.concluida),
+            ocorrencias_abertas=self._contar_ocorrencias_abertas(pedido.id),
         )
 
     def aprovar_homologacao(
@@ -384,7 +385,19 @@ class DemandService:
     # Atribuicao e evidencias (SCRUM-75)
     # ------------------------------------------------------------------
 
-    def atribuir_responsavel(self, usuario: User, pedido_id: UUID, *, responsavel_id: UUID) -> Pedido:
+    def atribuir_responsavel(
+        self,
+        usuario: User,
+        pedido_id: UUID,
+        *,
+        responsavel_id: UUID,
+        motivo: str | None = None,
+    ) -> Pedido:
+        """Atribui ou reatribui o tecnico responsavel (SCRUM-97).
+
+        A primeira atribuicao dispensa justificativa; trocar um tecnico ja
+        atribuido exige motivo, porque tira a demanda de quem a executava e o
+        historico precisa explicar a troca."""
         self._exigir_usuario_ativo(usuario)
         self._exigir_perfil(usuario, PerfilEnum.ADMIN)
         with self._transacao():
@@ -393,12 +406,112 @@ class DemandService:
             self._obter_usuario_com_perfil(responsavel_id, PerfilEnum.TECNICO, "responsavel")
 
             anterior = pedido.responsavel_id
+            if anterior == responsavel_id:
+                raise OperacaoConflitanteException("Este tecnico ja e o responsavel pela demanda.")
+            if anterior is not None:
+                motivo = ciclo_vida.validar_texto(motivo, "motivo da reatribuicao", 10, 500)
+            elif motivo is not None:
+                motivo = motivo.strip() or None
+
             pedido.responsavel_id = responsavel_id
             self._auditar(usuario, pedido, "ATRIBUICAO_RESPONSAVEL", {
                 "responsavel_anterior": str(anterior) if anterior else None,
                 "responsavel_novo": str(responsavel_id),
+                "motivo": motivo,
             })
         return pedido
+
+    # ------------------------------------------------------------------
+    # Ocorrencias e correcoes (SCRUM-98)
+    # ------------------------------------------------------------------
+
+    def listar_ocorrencias(self, usuario: User, pedido_id: UUID) -> Sequence[Ocorrencia]:
+        pedido = self.obter(usuario, pedido_id)
+        return self.db.scalars(
+            select(Ocorrencia)
+            .where(Ocorrencia.pedido_id == pedido.id)
+            .order_by(Ocorrencia.created_at, Ocorrencia.id)
+        ).all()
+
+    def registrar_ocorrencia(
+        self,
+        usuario: User,
+        pedido_id: UUID,
+        *,
+        tipo: TipoOcorrenciaEnum,
+        descricao: str,
+    ) -> Ocorrencia:
+        """Abre um erro ou pedido de correcao. Qualquer pessoa vinculada a demanda
+        (cliente dono, tecnico responsavel ou ADMIN) pode registrar; enquanto
+        houver ocorrencia aberta a demanda nao vai para HOMOLOGACAO."""
+        self._exigir_usuario_ativo(usuario)
+        ciclo_vida.validar_tipo_ocorrencia_manual(tipo)
+        descricao = ciclo_vida.validar_texto(descricao, "descricao da ocorrencia", 10, 2000)
+
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            ciclo_vida.validar_estado_para_ocorrencia(pedido.status)
+            ocorrencia = Ocorrencia(
+                pedido_id=pedido.id,
+                autor_id=usuario.id,
+                tipo=tipo,
+                descricao=descricao,
+                created_at=self._agora(),
+            )
+            self.db.add(ocorrencia)
+            self.db.flush()
+            self._auditar(usuario, pedido, "REGISTRO_OCORRENCIA", {
+                "ocorrencia_id": str(ocorrencia.id),
+                "tipo": tipo.value,
+                "descricao": descricao,
+            })
+        return ocorrencia
+
+    def resolver_ocorrencia(
+        self,
+        usuario: User,
+        pedido_id: UUID,
+        ocorrencia_id: UUID,
+        *,
+        descricao_resolucao: str,
+    ) -> Ocorrencia:
+        """Registra a correcao feita. Quem executa a demanda (tecnico responsavel
+        ou ADMIN) resolve; o cliente confere a correcao na homologacao."""
+        self._exigir_usuario_ativo(usuario)
+        descricao_resolucao = ciclo_vida.validar_texto(descricao_resolucao, "descricao da correcao", 10, 2000)
+
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            self._exigir_equipe_operacional(usuario, pedido)
+            self._bloquear_se_concluido(pedido, "resolver ocorrencias")
+
+            ocorrencia = self.db.scalar(
+                select(Ocorrencia)
+                .where(Ocorrencia.id == ocorrencia_id, Ocorrencia.pedido_id == pedido.id)
+                .with_for_update()
+            )
+            if ocorrencia is None:
+                raise RecursoNaoEncontradoException("Ocorrencia nao encontrada nesta demanda.")
+            if ocorrencia.resolvida:
+                raise OperacaoConflitanteException("A ocorrencia ja foi resolvida.")
+
+            ocorrencia.resolvida_em = self._agora()
+            ocorrencia.resolvida_por_id = usuario.id
+            ocorrencia.descricao_resolucao = descricao_resolucao
+            self.db.flush()
+            self._auditar(usuario, pedido, "RESOLUCAO_OCORRENCIA", {
+                "ocorrencia_id": str(ocorrencia.id),
+                "tipo": ocorrencia.tipo.value,
+                "descricao_resolucao": descricao_resolucao,
+            })
+        return ocorrencia
+
+    def _contar_ocorrencias_abertas(self, pedido_id: UUID) -> int:
+        return self.db.scalar(
+            select(func.count())
+            .select_from(Ocorrencia)
+            .where(Ocorrencia.pedido_id == pedido_id, Ocorrencia.resolvida_em.is_(None))
+        ) or 0
 
     def registrar_evidencia(
         self,
@@ -472,31 +585,14 @@ class DemandService:
     def _agora() -> datetime:
         return datetime.now(timezone.utc)
 
-    @staticmethod
-    def _exigir_usuario_ativo(usuario: User | None) -> None:
-        if usuario is None or usuario.id is None or usuario.ativo is not True:
-            raise AcessoNegadoException("A operacao exige um usuario autenticado e ativo.")
-
-    @staticmethod
-    def _exigir_perfil(usuario: User, *perfis: PerfilEnum) -> None:
-        if usuario.perfil not in perfis:
-            raise AcessoNegadoException("Perfil sem permissao para esta operacao.")
-
-    @staticmethod
-    def _is_admin(usuario: User) -> bool:
-        return usuario.perfil == PerfilEnum.ADMIN
-
-    @staticmethod
-    def _is_cliente_dono(usuario: User, pedido: Pedido) -> bool:
-        return usuario.perfil == PerfilEnum.CLIENTE and pedido.cliente_id == usuario.id
-
-    @staticmethod
-    def _is_responsavel(usuario: User, pedido: Pedido) -> bool:
-        return usuario.perfil == PerfilEnum.TECNICO and pedido.responsavel_id == usuario.id
-
-    def _exigir_equipe_operacional(self, usuario: User, pedido: Pedido) -> None:
-        if not self._is_admin(usuario) and not self._is_responsavel(usuario, pedido):
-            raise AcessoNegadoException("Somente o tecnico responsavel ou um ADMIN pode executar esta operacao.")
+    # As regras de perfil/vinculo moram em regras.autorizacao (SCRUM-95);
+    # os atalhos abaixo so mantem a leitura do service curta.
+    _exigir_usuario_ativo = staticmethod(autorizacao.exigir_usuario_ativo)
+    _exigir_perfil = staticmethod(autorizacao.exigir_perfil)
+    _is_admin = staticmethod(autorizacao.is_admin)
+    _is_cliente_dono = staticmethod(autorizacao.is_cliente_dono)
+    _is_responsavel = staticmethod(autorizacao.is_responsavel)
+    _exigir_equipe_operacional = staticmethod(autorizacao.exigir_equipe_operacional)
 
     def _bloquear_pedido_visivel(self, usuario: User, pedido_id: UUID) -> Pedido:
         """Carrega o pedido com bloqueio de linha e aplica o escopo de leitura."""
@@ -506,12 +602,7 @@ class DemandService:
             .with_for_update()
             .execution_options(populate_existing=True)
         )
-        visivel = pedido is not None and (
-            self._is_admin(usuario)
-            or self._is_cliente_dono(usuario, pedido)
-            or self._is_responsavel(usuario, pedido)
-        )
-        if not visivel:
+        if pedido is None or not autorizacao.pode_ver(usuario, pedido):
             raise RecursoNaoEncontradoException("Demanda nao encontrada.")
         return pedido
 

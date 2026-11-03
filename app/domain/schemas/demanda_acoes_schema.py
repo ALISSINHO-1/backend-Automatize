@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.models.enums import StatusPedidoEnum
+from app.domain.models.enums import StatusPedidoEnum, TipoOcorrenciaEnum
 
 
 class _Requisicao(BaseModel):
@@ -37,6 +37,11 @@ class RejeicaoRequest(_Requisicao):
 
 class ResponsavelRequest(_Requisicao):
     responsavel_id: UUID
+    motivo: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Obrigatorio (minimo 10 caracteres) ao trocar um tecnico ja atribuido.",
+    )
 
 
 class EtapaCreateRequest(_Requisicao):
@@ -64,3 +69,29 @@ class AuditoriaResponse(BaseModel):
     acao: str
     detalhes: dict[str, Any] | None
     created_at: datetime | None
+
+
+class OcorrenciaCreateRequest(_Requisicao):
+    tipo: TipoOcorrenciaEnum = Field(description="ERRO ou SOLICITACAO_CORRECAO.")
+    descricao: str = Field(max_length=2000, description="Minimo 10 caracteres.")
+
+
+class ResolucaoOcorrenciaRequest(_Requisicao):
+    descricao_resolucao: str = Field(max_length=2000, description="O que foi corrigido (minimo 10 caracteres).")
+
+
+class OcorrenciaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    pedido_id: UUID
+    autor_id: UUID
+    tipo: TipoOcorrenciaEnum
+    descricao: str
+    status_anterior: StatusPedidoEnum | None
+    status_novo: StatusPedidoEnum | None
+    created_at: datetime | None
+    resolvida: bool
+    resolvida_em: datetime | None
+    resolvida_por_id: UUID | None
+    descricao_resolucao: str | None
