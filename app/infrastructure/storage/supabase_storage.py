@@ -44,6 +44,10 @@ class StorageDeleteError(Exception):
     pass
 
 
+class StorageReadError(Exception):
+    pass
+
+
 class SupabaseStorage:
     def __init__(
         self,
@@ -99,7 +103,8 @@ class SupabaseStorage:
 
         return caminho
 
-    def delete(self, caminho: str) -> None:
+    @staticmethod
+    def _validate_path(caminho: str) -> None:
         parts = caminho.split("/")
         try:
             if len(parts) != 3 or parts[0] != "pedidos":
@@ -111,6 +116,28 @@ class SupabaseStorage:
                 raise ValueError
         except (ValueError, AttributeError):
             raise StorageDeleteError("Caminho de Storage inválido.") from None
+
+    def create_signed_url(self, caminho: str, *, expires_in: int = 300) -> str:
+        try:
+            self._validate_path(caminho)
+            if type(expires_in) is not int or not 1 <= expires_in <= 600:
+                raise ValueError
+            response = self.client.storage.from_(self.bucket).create_signed_url(caminho, expires_in)
+            url = response.get("signedURL") or response.get("signedUrl")
+            if not isinstance(url, str):
+                raise ValueError
+            parsed = urlsplit(url)
+            if not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError
+            local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+            if parsed.scheme != "https" and not local_http:
+                raise ValueError
+            return url
+        except Exception:
+            raise StorageReadError("Nao foi possivel gerar acesso temporario ao arquivo.") from None
+
+    def delete(self, caminho: str) -> None:
+        self._validate_path(caminho)
         try:
             self.client.storage.from_(self.bucket).remove([caminho])
         except Exception:

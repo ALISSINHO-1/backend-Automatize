@@ -1,0 +1,52 @@
+name: API e PostgreSQL
+
+on:
+  pull_request:
+  push:
+    branches: [main, HML, 'fix/api-finalizacao-*']
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_test_only
+          POSTGRES_DB: automatize_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d automatize_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres_test_only@localhost:5432/automatize_test
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres_test_only@localhost:5432/automatize_test
+      JWT_SECRET_KEY: chave-exclusiva-para-ci-descartavel-000000000000
+      CORS_ORIGINS: '["http://localhost:8080"]'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Segredos e migrations
+        run: |
+          python -m scripts.audit_secrets
+          python -m scripts.prepare_test_database
+          alembic upgrade head
+          alembic check
+      - name: Testes unitarios e integracao real
+        run: python -m pytest -q --junitxml=pytest-results.xml -ra
+      - name: Resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: pytest-results.xml
+          if-no-files-found: ignore

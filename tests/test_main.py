@@ -60,6 +60,7 @@ def test_domain_routers_have_expected_prefixes() -> None:
     assert [route.path for route in auth_router.routes] == ["/auth/login", "/auth/me"]
     assert [route.path for route in demandas_router.routes] == [
         "/demandas",
+        "/demandas/indicadores",
         "/demandas/{id}",
     ]
     assert endpoint_routers == (auth_router, demandas_router, demandas_acoes_router, usuarios_router)

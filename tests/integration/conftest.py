@@ -107,6 +107,11 @@ class FakeStorage:
     def delete(self, caminho: str) -> None:
         self.arquivos.pop(caminho, None)
 
+    def create_signed_url(self, caminho: str, *, expires_in: int = 300) -> str:
+        assert caminho in self.arquivos
+        assert expires_in == 300
+        return f"https://storage.test.invalid/{caminho}?token=temporario"
+
 
 @pytest.fixture
 def storage() -> FakeStorage:

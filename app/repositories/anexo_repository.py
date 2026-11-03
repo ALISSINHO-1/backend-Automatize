@@ -78,6 +78,12 @@ class AnexoRepository(BaseRepository[Anexo]):
 
         return self.db.scalars(stmt).all()
 
+    def listar_pagina(self, pedido_id: UUID, *, offset=0, limit=100):
+        return self.db.scalars(
+            select(Anexo).where(Anexo.pedido_id == pedido_id)
+            .order_by(Anexo.created_at.asc(), Anexo.id.asc()).offset(offset).limit(limit)
+        ).all()
+
     def get_by_ocorrencia(
         self,
         ocorrencia_id: UUID,

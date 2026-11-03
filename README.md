@@ -2,6 +2,9 @@
 
 Backend FastAPI do projeto acadêmico Automatize. A API expõe documentação OpenAPI, login com JSON, consultas autenticadas de demandas e uma rota de saúde.
 
+Complementos de filtros, indicadores, anexos privados, etapas, CI e deploy:
+[guia de integracao de 03/11/2026](docs/api-finalizacao-2026-11-03.md).
+
 ## Estado da implementação
 
 - Modelos SQLAlchemy, repositórios base, de usuários e de pedidos, além de revisões Alembic existentes.
