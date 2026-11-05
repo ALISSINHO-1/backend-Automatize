@@ -14,6 +14,9 @@ class ObjectEvidence:
     created_at: datetime | None
     updated_at: datetime | None
     storage_id: UUID | None = None
+    # Optional opaque generation supplied only by a capable metadata adapter.
+    # The current SQL inventory does not assert that such a version exists.
+    version: str | None = None
 
 
 def classify_objects(objects, references, order_ids, *, now=None, complete=False):
