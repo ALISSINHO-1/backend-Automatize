@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.models.enums import StatusPedidoEnum, TipoOcorrenciaEnum
 
@@ -46,6 +46,18 @@ class ResponsavelRequest(_Requisicao):
 
 class EtapaCreateRequest(_Requisicao):
     descricao: str = Field(max_length=255)
+    ordem: int | None = Field(default=None, ge=1, strict=True, description="Posicao; omitida adiciona ao final.")
+
+
+class EtapaUpdateRequest(_Requisicao):
+    descricao: str | None = Field(default=None, min_length=3, max_length=255)
+    ordem: int | None = Field(default=None, ge=1, strict=True)
+
+    @model_validator(mode="after")
+    def exigir_alteracao(self):
+        if self.descricao is None and self.ordem is None:
+            raise ValueError("Informe descricao ou ordem.")
+        return self
 
 
 class EtapaResponse(BaseModel):
@@ -54,6 +66,7 @@ class EtapaResponse(BaseModel):
     id: UUID
     pedido_id: UUID
     descricao: str
+    ordem: int
     concluida: bool
     concluida_em: datetime | None
     concluida_por_id: UUID | None

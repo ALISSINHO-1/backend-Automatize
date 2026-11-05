@@ -29,6 +29,7 @@ from app.domain.models.pedido import Pedido
 from app.domain.models.user import User
 from app.domain.regras import autorizacao, ciclo_vida
 from app.repositories.auditoria_log_repository import AuditoriaLogRepository
+from app.repositories.anexo_repository import AnexoRepository
 from app.repositories.etapa_operacional_repository import EtapaOperacionalRepository
 from app.repositories.pedido_repository import PedidoRepository
 from app.repositories.user_repository import UserRepository
@@ -93,6 +94,20 @@ class DemandService:
     def listar_etapas(self, usuario: User, pedido_id: UUID) -> Sequence[EtapaOperacional]:
         pedido = self.obter(usuario, pedido_id)
         return self.etapas.get_by_pedido(pedido.id)
+
+    def listar_anexos(self, usuario: User, pedido_id: UUID, *, offset=0, limit=100):
+        pedido = self.obter(usuario, pedido_id)
+        return AnexoRepository(self.db).listar_pagina(pedido.id, offset=offset, limit=limit)
+
+    def acessar_anexo(self, usuario: User, pedido_id: UUID, anexo_id: UUID):
+        pedido = self.obter(usuario, pedido_id)
+        anexo = AnexoRepository(self.db).get_by_id(anexo_id)
+        if anexo is None or anexo.pedido_id != pedido.id:
+            raise RecursoNaoEncontradoException("Anexo nao encontrado nesta demanda.")
+        if not anexo.caminho_storage.startswith(f"pedidos/{pedido.id}/"):
+            from app.infrastructure.storage.supabase_storage import StorageReadError
+            raise StorageReadError("Referencia de arquivo indisponivel.")
+        return self.anexo_service.storage.create_signed_url(anexo.caminho_storage, expires_in=300)
 
     def listar_auditoria(self, usuario: User, pedido_id: UUID) -> Sequence[AuditoriaLog]:
         """Historico somente leitura das acoes sobre a demanda (SCRUM-75)."""
@@ -329,7 +344,7 @@ class DemandService:
     # Etapas operacionais (SCRUM-71)
     # ------------------------------------------------------------------
 
-    def adicionar_etapa(self, usuario: User, pedido_id: UUID, *, descricao: str) -> EtapaOperacional:
+    def adicionar_etapa(self, usuario: User, pedido_id: UUID, *, descricao: str, ordem: int | None = None) -> EtapaOperacional:
         self._exigir_usuario_ativo(usuario)
         descricao = ciclo_vida.validar_texto(descricao, "descricao da etapa", 3, 255)
 
@@ -342,17 +357,81 @@ class DemandService:
                     f"Estado atual: {pedido.status.value}."
                 )
 
+            etapas = list(self.etapas.get_by_pedido(pedido.id))
+            posicao = len(etapas) + 1 if ordem is None else ordem
+            self._validar_posicao_etapa(posicao, len(etapas) + 1)
             etapa = self.etapas.create({
                 "pedido_id": pedido.id,
                 "descricao": descricao,
                 "criado_por_id": usuario.id,
+                "ordem": posicao,
             })
+            etapas.insert(posicao - 1, etapa)
+            self._ordenar_etapas(etapas)
             self._recalcular_progresso(pedido)
             self._auditar(usuario, pedido, "CADASTRO_ETAPA", {
                 "etapa_id": str(etapa.id),
                 "descricao": descricao,
+                "ordem": posicao,
             })
         return etapa
+
+    @staticmethod
+    def _validar_posicao_etapa(ordem: int, total: int) -> None:
+        if type(ordem) is not int or not 1 <= ordem <= total:
+            raise OperacaoConflitanteException(f"A ordem deve estar entre 1 e {total}.")
+
+    def _ordenar_etapas(self, etapas) -> None:
+        for posicao, etapa in enumerate(etapas, 1):
+            etapa.ordem = posicao
+        self.db.flush()
+
+    def _etapa_mutavel(self, usuario, pedido, etapa_id):
+        self._exigir_equipe_operacional(usuario, pedido)
+        if pedido.status not in (StatusPedidoEnum.PLANEAMENTO, StatusPedidoEnum.EXECUCAO):
+            raise TransicaoEstadoInvalidaException("Etapas so podem ser alteradas em PLANEAMENTO ou EXECUCAO.")
+        etapa = self.etapas.get_by_id_and_pedido(etapa_id, pedido.id)
+        if etapa is None:
+            raise RecursoNaoEncontradoException("Etapa nao encontrada nesta demanda.")
+        if etapa.concluida:
+            raise RegistroImutavelException("Etapas concluidas nao podem ser editadas ou removidas.")
+        return etapa
+
+    def editar_etapa(self, usuario, pedido_id, etapa_id, *, descricao=None, ordem=None):
+        self._exigir_usuario_ativo(usuario)
+        if descricao is not None:
+            descricao = ciclo_vida.validar_texto(descricao, "descricao da etapa", 3, 255)
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            etapa = self._etapa_mutavel(usuario, pedido, etapa_id)
+            anterior = {"descricao": etapa.descricao, "ordem": etapa.ordem}
+            etapas = list(self.etapas.get_by_pedido(pedido.id))
+            if ordem is not None:
+                self._validar_posicao_etapa(ordem, len(etapas))
+                etapas.remove(etapa)
+                etapas.insert(ordem - 1, etapa)
+                self._ordenar_etapas(etapas)
+            if descricao is not None:
+                etapa.descricao = descricao
+            self._recalcular_progresso(pedido)
+            self._auditar(usuario, pedido, "EDICAO_ETAPA", {
+                "etapa_id": str(etapa.id), "anterior": anterior,
+                "novo": {"descricao": etapa.descricao, "ordem": etapa.ordem},
+            })
+        return etapa
+
+    def remover_etapa(self, usuario, pedido_id, etapa_id, *, motivo):
+        self._exigir_usuario_ativo(usuario)
+        motivo = ciclo_vida.validar_texto(motivo, "motivo", 10, 500)
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            etapa = self._etapa_mutavel(usuario, pedido, etapa_id)
+            detalhes = {"etapa_id": str(etapa.id), "descricao": etapa.descricao,
+                        "ordem": etapa.ordem, "motivo": motivo}
+            self.etapas.delete(etapa)
+            self._ordenar_etapas(self.etapas.get_by_pedido(pedido.id))
+            self._recalcular_progresso(pedido)
+            self._auditar(usuario, pedido, "REMOCAO_ETAPA", detalhes)
 
     def concluir_etapa(self, usuario: User, pedido_id: UUID, etapa_id: UUID) -> EtapaOperacional:
         self._exigir_usuario_ativo(usuario)

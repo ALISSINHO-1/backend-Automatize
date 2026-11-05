@@ -13,13 +13,18 @@ from tests.integration.test_concurrency_postgres import committed_order  # noqa:
 @pytest.mark.parametrize("table", PROTECTED_TABLES)
 def test_domain_grants_are_closed_and_rls_enabled(engine, role, table):
     with engine.connect() as connection:
+        privileges = 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+        # MAINTAIN existe a partir do PostgreSQL 17; continuar verificando todos
+        # os privilegios disponiveis, inclusive ao executar esta suite no 16.
+        if engine.dialect.server_version_info >= (17,):
+            privileges += ',MAINTAIN'
         flags = connection.execute(text("""
             SELECT c.relrowsecurity,
-                has_table_privilege(:role,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') AS any_grant,
+                has_table_privilege(:role,c.oid,:privileges) AS any_grant,
                 has_any_column_privilege(:role,c.oid,'SELECT,INSERT,UPDATE,REFERENCES') AS column_grant
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relname=:table
-        """), {"role": role, "table": table}).mappings().one()
+        """), {"role": role, "table": table, "privileges": privileges}).mappings().one()
         assert flags["relrowsecurity"] is True
         assert not flags["any_grant"] and not flags["column_grant"]
     for statement in (f'SELECT * FROM public.{table}',

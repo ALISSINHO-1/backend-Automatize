@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import JSON, DefaultClause, MetaData, create_engine, event, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.domain.models.enums import PerfilEnum, StatusPedidoEnum
@@ -19,7 +20,7 @@ from app.domain.models.user import User
 
 @pytest.fixture
 def persistence_db():
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
     @event.listens_for(engine, "connect")
     def configure(connection, _):
@@ -27,7 +28,7 @@ def persistence_db():
         connection.create_function("gen_random_uuid", 0, lambda: uuid4().hex)
 
     metadata = MetaData()
-    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos", "auditoria_logs"):
+    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos", "auditoria_logs", "etapas_operacionais"):
         table = Base.metadata.tables[name].to_metadata(metadata)
         # Adapt only PostgreSQL casts in this test's copied DDL, never models.
         for column in table.columns:

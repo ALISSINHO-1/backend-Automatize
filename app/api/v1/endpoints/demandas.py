@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.domain.models.user import User
 from app.domain.schemas.demanda_schema import DemandaResponse
+from app.domain.schemas.demanda_filtros import DemandaFiltros, DemandaIndicadores
+from app.domain.models.enums import StatusPedidoEnum
 from app.services.demanda_service import DemandAccessDenied, DemandaQueryService
 
 
@@ -41,6 +44,26 @@ _UNAUTHORIZED_RESPONSE = {
 }
 
 
+def filtros_demanda(
+    busca: str | None = Query(None, min_length=1, max_length=255),
+    status: StatusPedidoEnum | None = Query(None),
+    cliente_id: UUID | None = Query(None),
+    responsavel_id: UUID | None = Query(None),
+    criado_de: datetime | None = Query(None, description="Inicio inclusivo; data/hora com fuso."),
+    criado_ate: datetime | None = Query(None, description="Fim inclusivo; data/hora com fuso."),
+) -> DemandaFiltros | None:
+    for valor in (criado_de, criado_ate):
+        if valor is not None and valor.utcoffset() is None:
+            raise HTTPException(422, "Informe datas com fuso horario (Z ou -03:00).")
+    if criado_de and criado_ate and criado_de > criado_ate:
+        raise HTTPException(422, "criado_de deve ser anterior ou igual a criado_ate.")
+    if busca is not None and not busca.strip():
+        raise HTTPException(422, "A busca nao pode conter apenas espacos.")
+    valores = dict(busca=busca, status=status, cliente_id=cliente_id, responsavel_id=responsavel_id,
+                   criado_de=criado_de, criado_ate=criado_ate)
+    return DemandaFiltros(**valores) if any(v is not None for v in valores.values()) else None
+
+
 @router.get(
     "",
     response_model=list[DemandaResponse],
@@ -59,7 +82,7 @@ _UNAUTHORIZED_RESPONSE = {
         },
         401: _UNAUTHORIZED_RESPONSE,
         403: {"description": "Perfil sem política de consulta de demandas."},
-        422: {"description": "Parâmetros de paginação inválidos."},
+        422: {"description": "Paginacao, filtros ou intervalo de datas invalidos."},
     },
 )
 def list_demandas(
@@ -72,12 +95,15 @@ def list_demandas(
     ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    filtros: DemandaFiltros | None = Depends(filtros_demanda),
 ) -> list[DemandaResponse]:
     try:
+        argumentos = {"filtros": filtros} if filtros is not None else {}
         results = DemandaQueryService(db).list_demands(
             user,
             offset=offset,
             limit=limit,
+            **argumentos,
         )
     except DemandAccessDenied:
         raise HTTPException(
@@ -85,6 +111,20 @@ def list_demandas(
             detail="Perfil sem permissão para consultar demandas.",
         ) from None
     return [DemandaResponse.model_validate(item) for item in results]
+
+
+@router.get("/indicadores", response_model=DemandaIndicadores,
+            summary="Conta todas as demandas do conjunto filtrado autorizado",
+            responses={401: _UNAUTHORIZED_RESPONSE, 403: {"description": "Perfil sem permissao."},
+                       422: {"description": "Filtros ou intervalo de datas invalidos."}})
+def indicadores_demandas(
+    filtros: DemandaFiltros | None = Depends(filtros_demanda),
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        return DemandaQueryService(db).indicadores(user, filtros or DemandaFiltros())
+    except DemandAccessDenied:
+        raise HTTPException(403, "Perfil sem permissao para consultar demandas.") from None
 
 
 @router.get(
