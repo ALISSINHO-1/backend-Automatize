@@ -6,15 +6,18 @@ cliente_id/autor_id do corpo e usado para autorizar ou auditar.
 from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_application_settings, get_current_user
+from app.core.config import Settings
 from app.core.database import get_db
 from app.core.exceptions import (
     AcessoNegadoException,
     AprovacaoNaoAutorizadaException,
+    OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
     RegraNegocioException,
@@ -29,22 +32,35 @@ from app.domain.schemas.demanda_acoes_schema import (
     DemandaUpdateRequest,
     EtapaCreateRequest,
     EtapaResponse,
+    EtapaUpdateRequest,
+    OcorrenciaCreateRequest,
+    OcorrenciaResponse,
     RejeicaoRequest,
+    ResolucaoOcorrenciaRequest,
     ResponsavelRequest,
     StatusUpdateRequest,
 )
 from app.domain.schemas.demanda_schema import DemandaResponse
 from app.schemas.anexo import AnexoResponse
+from app.domain.schemas.anexo_consulta import AnexoPublico, AnexoAcesso
+from app.infrastructure.storage.supabase_storage import StorageReadError
 from app.services.demand_service import DemandService
 
 
-router = APIRouter(prefix="/demandas", tags=["Demandas - Acoes"])
+router = APIRouter(prefix="/demandas", tags=["Demandas - Acoes"], responses={
+    401: {"description": "Token ausente, invalido, expirado ou usuario inativo."},
+    403: {"description": "Perfil sem permissao para esta operacao."},
+    404: {"description": "Recurso inexistente ou fora do escopo do usuario."},
+    409: {"description": "Conflito com o estado ou a imutabilidade do recurso."},
+    422: {"description": "Entrada invalida ou campo protegido/nao permitido."},
+})
 
 _STATUS_POR_EXCECAO: tuple[tuple[type[RegraNegocioException], int], ...] = (
     (RecursoNaoEncontradoException, status.HTTP_404_NOT_FOUND),
     (AcessoNegadoException, status.HTTP_403_FORBIDDEN),
     (AprovacaoNaoAutorizadaException, status.HTTP_403_FORBIDDEN),
     (RegistroImutavelException, status.HTTP_409_CONFLICT),
+    (OperacaoConflitanteException, status.HTTP_409_CONFLICT),
     (TransicaoEstadoInvalidaException, status.HTTP_409_CONFLICT),
     (RegraNegocioException, 422),
 )
@@ -61,8 +77,11 @@ def _regras_como_http() -> Iterator[None]:
         raise
 
 
-def get_demand_service(db: Session = Depends(get_db)) -> DemandService:
-    return DemandService(db)
+def get_demand_service(
+    db: Session = Depends(get_db),
+    configured_settings: Settings = Depends(get_application_settings),
+) -> DemandService:
+    return DemandService(db, storage_settings=configured_settings)
 
 
 @router.post("", response_model=DemandaResponse, status_code=status.HTTP_201_CREATED,
@@ -141,7 +160,8 @@ def rejeitar_homologacao(
     return DemandaResponse.model_validate(pedido)
 
 
-@router.put("/{id}/responsavel", response_model=DemandaResponse, summary="Atribui o tecnico responsavel")
+@router.put("/{id}/responsavel", response_model=DemandaResponse,
+            summary="Atribui ou reatribui o tecnico responsavel (reatribuicao exige motivo)")
 def atribuir_responsavel(
     id: UUID,
     dados: ResponsavelRequest,
@@ -149,7 +169,8 @@ def atribuir_responsavel(
     service: DemandService = Depends(get_demand_service),
 ) -> DemandaResponse:
     with _regras_como_http():
-        pedido = service.atribuir_responsavel(usuario, id, responsavel_id=dados.responsavel_id)
+        pedido = service.atribuir_responsavel(usuario, id, responsavel_id=dados.responsavel_id,
+                                              motivo=dados.motivo)
     return DemandaResponse.model_validate(pedido)
 
 
@@ -173,8 +194,28 @@ def adicionar_etapa(
     service: DemandService = Depends(get_demand_service),
 ) -> EtapaResponse:
     with _regras_como_http():
-        etapa = service.adicionar_etapa(usuario, id, descricao=dados.descricao)
+        etapa = service.adicionar_etapa(usuario, id, descricao=dados.descricao, ordem=dados.ordem)
     return EtapaResponse.model_validate(etapa)
+
+
+@router.patch("/{id}/etapas/{etapa_id}", response_model=EtapaResponse,
+              summary="Edita descricao ou reposiciona uma etapa pendente")
+def editar_etapa(id: UUID, etapa_id: UUID, dados: EtapaUpdateRequest,
+                 usuario: User = Depends(get_current_user),
+                 service: DemandService = Depends(get_demand_service)):
+    with _regras_como_http():
+        etapa = service.editar_etapa(usuario, id, etapa_id, **dados.model_dump(exclude_none=True))
+    return EtapaResponse.model_validate(etapa)
+
+
+@router.delete("/{id}/etapas/{etapa_id}", status_code=204,
+               summary="Remove etapa pendente com justificativa e auditoria")
+def remover_etapa(id: UUID, etapa_id: UUID, motivo: str = Query(..., min_length=10, max_length=500),
+                  usuario: User = Depends(get_current_user),
+                  service: DemandService = Depends(get_demand_service)):
+    with _regras_como_http():
+        service.remover_etapa(usuario, id, etapa_id, motivo=motivo)
+    return Response(status_code=204)
 
 
 @router.post("/{id}/etapas/{etapa_id}/conclusao", response_model=EtapaResponse,
@@ -204,7 +245,8 @@ def enviar_evidencia(
     conteudo = arquivo.file.read(TAMANHO_MAXIMO_BYTES + 1)
     with _regras_como_http():
         anexo = service.registrar_evidencia(usuario, id, nome_arquivo=arquivo.filename or "",
-                                            conteudo=conteudo, ocorrencia_id=ocorrencia_id)
+                                            conteudo=conteudo, content_type=arquivo.content_type,
+                                            ocorrencia_id=ocorrencia_id)
     return AnexoResponse.model_validate(anexo)
 
 
@@ -218,3 +260,76 @@ def listar_historico(
     with _regras_como_http():
         registros = service.listar_auditoria(usuario, id)
     return [AuditoriaResponse.model_validate(registro) for registro in registros]
+
+
+@router.get("/{id}/anexos", response_model=list[AnexoPublico],
+            summary="Lista metadados dos anexos da demanda autorizada")
+def listar_anexos(id: UUID, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100),
+                  usuario: User = Depends(get_current_user),
+                  service: DemandService = Depends(get_demand_service)):
+    with _regras_como_http():
+        anexos = service.listar_anexos(usuario, id, offset=offset, limit=limit)
+    return [AnexoPublico(
+        id=a.id, pedido_id=a.pedido_id, ocorrencia_id=a.ocorrencia_id,
+        nome_arquivo=a.nome_arquivo, extensao=a.extensao, tamanho_bytes=a.tamanho_bytes,
+        created_at=a.created_at, referencia_acesso=f"/demandas/{id}/anexos/{a.id}/acesso",
+    ) for a in anexos]
+
+
+@router.get("/{id}/anexos/{anexo_id}/acesso", response_model=AnexoAcesso,
+            summary="Gera link assinado valido por cinco minutos",
+            responses={404: {"description": "Anexo ou demanda inexistente ou fora do escopo."},
+                       503: {"description": "Storage indisponivel ou nao configurado."}})
+def acessar_anexo(id: UUID, anexo_id: UUID, response: Response,
+                   usuario: User = Depends(get_current_user),
+                   service: DemandService = Depends(get_demand_service)):
+    # O link e uma credencial temporaria: nao deve ser armazenado em cache.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    expira_em = datetime.now(timezone.utc) + timedelta(seconds=300)
+    with _regras_como_http():
+        try:
+            url = service.acessar_anexo(usuario, id, anexo_id)
+        except (StorageReadError, RuntimeError):
+            raise HTTPException(503, "Acesso ao arquivo temporariamente indisponivel.") from None
+    return AnexoAcesso(url=url, expira_em=expira_em, validade_segundos=300)
+
+
+@router.get("/{id}/ocorrencias", response_model=list[OcorrenciaResponse],
+            summary="Lista as ocorrencias (erros, correcoes e regressos) da demanda")
+def listar_ocorrencias(
+    id: UUID,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> list[OcorrenciaResponse]:
+    with _regras_como_http():
+        ocorrencias = service.listar_ocorrencias(usuario, id)
+    return [OcorrenciaResponse.model_validate(ocorrencia) for ocorrencia in ocorrencias]
+
+
+@router.post("/{id}/ocorrencias", response_model=OcorrenciaResponse, status_code=status.HTTP_201_CREATED,
+             summary="Registra um erro ou pedido de correcao (bloqueia a HOMOLOGACAO ate ser resolvido)")
+def registrar_ocorrencia(
+    id: UUID,
+    dados: OcorrenciaCreateRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> OcorrenciaResponse:
+    with _regras_como_http():
+        ocorrencia = service.registrar_ocorrencia(usuario, id, tipo=dados.tipo, descricao=dados.descricao)
+    return OcorrenciaResponse.model_validate(ocorrencia)
+
+
+@router.post("/{id}/ocorrencias/{ocorrencia_id}/resolucao", response_model=OcorrenciaResponse,
+             summary="Registra a correcao de uma ocorrencia")
+def resolver_ocorrencia(
+    id: UUID,
+    ocorrencia_id: UUID,
+    dados: ResolucaoOcorrenciaRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> OcorrenciaResponse:
+    with _regras_como_http():
+        ocorrencia = service.resolver_ocorrencia(usuario, id, ocorrencia_id,
+                                                 descricao_resolucao=dados.descricao_resolucao)
+    return OcorrenciaResponse.model_validate(ocorrencia)

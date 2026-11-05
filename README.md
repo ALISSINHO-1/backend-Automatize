@@ -2,6 +2,9 @@
 
 Backend FastAPI do projeto acadêmico Automatize. A API expõe documentação OpenAPI, login com JSON, consultas autenticadas de demandas e uma rota de saúde.
 
+Complementos de filtros, indicadores, anexos privados, etapas, CI e deploy:
+[guia de integracao de 03/11/2026](docs/api-finalizacao-2026-11-03.md).
+
 ## Estado da implementação
 
 - Modelos SQLAlchemy, repositórios base, de usuários e de pedidos, além de revisões Alembic existentes.
@@ -41,6 +44,11 @@ Edite o `.env` local e substitua os valores de exemplo. O comando de cópia pres
 | `SUPABASE_KEY` | Chave autorizada para o bucket | Necessária apenas ao utilizar Storage; nunca expor no frontend. |
 | `CORS_ORIGINS` | Lista JSON de origens | Padrão `[]`; não use `*` com credenciais habilitadas. |
 
+`postgresql://` também é aceito e normalizado internamente para
+`postgresql+psycopg2://`. A API, o Alembic e os testes usam o mesmo validador,
+sem depender do driver padrão da versão do SQLAlchemy. O projeto instala
+`psycopg2-binary`; URLs explícitas com outros drivers não são aceitas.
+
 Gere uma chave localmente com:
 
 ```powershell
@@ -72,6 +80,15 @@ Resposta `200`:
 O token representa o UUID persistido do usuário em `sub`, além de `iat` e `exp`. As consultas validam assinatura HS256 usando a chave da instância da aplicação e carregam o usuário ativo novamente do banco. Perfil e escopo vêm desse usuário persistido.
 
 No Swagger em `/docs`, execute `POST /auth/login`, copie o valor de `access_token`, clique em **Authorize** e cole o token no campo Bearer. Depois execute uma consulta protegida. Clientes HTTP também devem enviar `Authorization: Bearer <token>`.
+
+`GET /auth/me` usa esse mesmo Bearer e retorna somente `id` (UUID em string),
+`nome`, `email` e `perfil` (`ADMIN`, `TECNICO` ou `CLIENTE`). A identidade e o
+perfil vêm do usuário ativo consultado pelo `sub` do JWT; parâmetros de usuário
+enviados pelo cliente não alteram essa identidade. Token ausente, inválido ou
+expirado, usuário inexistente e conta inativa retornam `401` genérico com
+`WWW-Authenticate: Bearer`. A resposta não contém senha, hash ou token.
+O frontend pode usar `perfil` para escolher as telas; a autorização das operações
+continua nas rotas do backend.
 
 Usuário inexistente, senha incorreta, hash inválido ou conta inativa no login retornam `401` genérico e `WWW-Authenticate: Bearer`. Falhas de persistência não são convertidas em `401`. Corpo ausente ou campos inválidos retornam `422` sem incluir valores rejeitados.
 
@@ -162,8 +179,12 @@ Os testes de integração (`tests/integration`) rodam contra um PostgreSQL real:
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql+psycopg2://postgres:senha@localhost:5432/automatize_test"
-python -m pytest -q
+python -m pytest tests -q
 ```
+
+O banco de integração deve estar em loopback (`localhost`, `127.0.0.1` ou
+`::1`), com porta explícita. O guard de isolamento valida o destino e reutiliza
+a normalização da API e do Alembic antes de abrir a conexão.
 
 O frontend precisará tratar UUID como string, enviar o Bearer e usar uma URL base configurável para a API.
 
@@ -194,15 +215,28 @@ As rotas de aprovação e de upload estão descritas em "Regras de negócio e ro
 | `POST /demandas` | CLIENTE (para si) ou ADMIN (informando `cliente_id`) | Nasce em `PLANEAMENTO` com 15%. |
 | `PATCH /demandas/{id}` | Cliente da demanda ou ADMIN | Título ≥ 3 e descrição ≥ 5 caracteres. |
 | `DELETE /demandas/{id}` | ADMIN | Demandas concluídas não podem ser excluídas. |
-| `PUT /demandas/{id}/responsavel` | ADMIN | O responsável deve ser um TECNICO ativo. |
-| `POST /demandas/{id}/status` | Técnico responsável ou ADMIN | `PLANEAMENTO → EXECUCAO → HOMOLOGACAO`; etapas pendentes bloqueiam a homologação. `CONCLUIDO` só pelo aceite. |
+| `PUT /demandas/{id}/responsavel` | ADMIN | O responsável deve ser um TECNICO ativo e diferente do atual. Trocar um técnico já atribuído exige `motivo` (≥ 10 caracteres), gravado na auditoria. |
+| `POST /demandas/{id}/status` | Técnico responsável ou ADMIN | `PLANEAMENTO → EXECUCAO → HOMOLOGACAO`; etapas pendentes ou ocorrências em aberto bloqueiam a homologação. `CONCLUIDO` só pelo aceite. |
+| `GET/POST /demandas/{id}/ocorrencias` | Registro: cliente da demanda, técnico responsável ou ADMIN (leitura: quem vê a demanda) | Tipos `ERRO` ou `SOLICITACAO_CORRECAO`, descrição ≥ 10 caracteres, só em `PLANEAMENTO`/`EXECUCAO` (em `HOMOLOGACAO` a correção é pedida pela rejeição). |
+| `POST /demandas/{id}/ocorrencias/{ocorrencia_id}/resolucao` | Técnico responsável ou ADMIN | Registra a correção (`descricao_resolucao` ≥ 10). Vale também para o `REGRESSO_ESTADO` gerado pela rejeição. |
 | `GET/POST /demandas/{id}/etapas`, `POST .../etapas/{etapa_id}/conclusao` | Técnico responsável ou ADMIN (leitura: quem vê a demanda) | Etapas em `PLANEAMENTO`/`EXECUCAO`; conclusão só em `EXECUCAO`. Em `EXECUCAO`, progresso = 15 + 70 × concluídas/total. |
 | `POST /demandas/{id}/aceite` | Somente o cliente da demanda | Exige `HOMOLOGACAO`; grava aceite com hash SHA-256 e conclui com 100%. |
 | `POST /demandas/{id}/rejeicao` | Somente o cliente da demanda | Motivo ≥ 10 caracteres; volta para `EXECUCAO` e registra ocorrência `REGRESSO_ESTADO`. |
 | `POST /demandas/{id}/evidencias` | Cliente, técnico responsável ou ADMIN | Multipart `arquivo`; aceita `pdf`, `png`, `jpg`, `jpeg` e `docx` até 10 MB. |
 | `GET /demandas/{id}/historico` | Quem vê a demanda | Auditoria somente leitura, com o autor de cada ação. |
 
-Demandas fora do escopo do usuário respondem 404; falta de permissão responde 403; violação de estado ou de imutabilidade responde 409; dados inválidos respondem 422. Corpos com campos desconhecidos (por exemplo um `cliente_id` no aceite) são recusados com 422.
+As regras de perfil e de vínculo com a demanda (quem vê, quem executa, quem edita) ficam num único módulo, `app/domain/regras/autorizacao.py` (SCRUM-95), usado pelas consultas e pelas rotas de escrita.
+
+**Gestão de usuários (SCRUM-96/99), somente ADMIN:**
+
+| Rota | Regra |
+| --- | --- |
+| `GET /usuarios?perfil=&ativo=` | Lista com e-mail, perfil e status; nunca o hash da senha. |
+| `POST /usuarios` | `nome`, `email` (normalizado para minúsculas, único), `senha` (≥ 8) e `perfil`. |
+| `PATCH /usuarios/{id}/perfil` | Não vale para a própria conta nem para o último ADMIN ativo; técnico com demanda em aberto ou cliente com demandas não muda de perfil. |
+| `PATCH /usuarios/{id}/ativo` | Inativo não consegue logar nem usar tokens já emitidos. Não vale para a própria conta nem para o último ADMIN ativo; técnico com demanda em aberto precisa ter as demandas reatribuídas antes. |
+
+Demandas fora do escopo do usuário respondem 404; falta de permissão responde 403; violação de estado ou de imutabilidade, ou operação sem efeito (ex.: atribuir o mesmo técnico), responde 409; dados inválidos respondem 422. Corpos com campos desconhecidos (por exemplo um `cliente_id` no aceite) são recusados com 422.
 
 **Validação de evidências.** O conteúdo real precisa ter a assinatura do formato declarado (um executável renomeado para `.png` é recusado). PDFs com JavaScript, ações ou arquivos embutidos e DOCX com macros são recusados, e o DOCX tem limite de conteúdo descompactado. O `content-type` enviado ao Storage é o detectado, não o informado pelo cliente. O `.doc` legado deixou de ser aceito por não permitir verificar macros com segurança.
 

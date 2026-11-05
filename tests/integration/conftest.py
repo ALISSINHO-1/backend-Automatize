@@ -14,11 +14,11 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine # type: ignore
-from sqlalchemy.engine import make_url # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
 from app.domain.models.enums import PerfilEnum
 from app.domain.models.user import User
+from scripts.isolated_database import require_isolated_database
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,13 +29,27 @@ TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 def engine():
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL não definida; testes de integração com PostgreSQL ignorados.")
-    if "test" not in (make_url(TEST_DATABASE_URL).database or ""):
-        pytest.fail("TEST_DATABASE_URL deve apontar para um banco de testes (nome contendo 'test').")
+    database_url = require_isolated_database(TEST_DATABASE_URL)
 
+    database_engine = create_engine(database_url, hide_parameters=True)
+    with database_engine.begin() as connection:
+        connection.exec_driver_sql("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN
+                    CREATE ROLE anon NOLOGIN;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN
+                    CREATE ROLE authenticated NOLOGIN;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN
+                    CREATE ROLE service_role NOLOGIN BYPASSRLS;
+                END IF;
+            END $$
+        """)
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(ROOT / "alembic"))
     database_url_original = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ["DATABASE_URL"] = database_url
     try:
         command.upgrade(config, "head")
     finally:
@@ -44,7 +58,6 @@ def engine():
         else:
             os.environ["DATABASE_URL"] = database_url_original
 
-    database_engine = create_engine(TEST_DATABASE_URL)
     yield database_engine
     database_engine.dispose()
 
@@ -93,6 +106,11 @@ class FakeStorage:
 
     def delete(self, caminho: str) -> None:
         self.arquivos.pop(caminho, None)
+
+    def create_signed_url(self, caminho: str, *, expires_in: int = 300) -> str:
+        assert caminho in self.arquivos
+        assert expires_in == 300
+        return f"https://storage.test.invalid/{caminho}?token=temporario"
 
 
 @pytest.fixture

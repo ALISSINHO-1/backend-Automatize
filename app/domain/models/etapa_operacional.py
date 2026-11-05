@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, text # type: ignore
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 
@@ -14,6 +14,7 @@ class EtapaOperacional(Base):
     __tablename__ = "etapas_operacionais"
 
     __table_args__ = (
+        CheckConstraint("ordem >= 1", name="ck_etapas_ordem_positiva"),
         CheckConstraint(
             "(concluida AND concluida_em IS NOT NULL AND concluida_por_id IS NOT NULL)"
             " OR (NOT concluida AND concluida_em IS NULL AND concluida_por_id IS NULL)",
@@ -38,6 +39,8 @@ class EtapaOperacional(Base):
         String(255),
         nullable=False,
     )
+
+    ordem: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
 
     concluida: Mapped[bool] = mapped_column(
         Boolean,

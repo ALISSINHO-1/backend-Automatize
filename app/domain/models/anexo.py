@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, text # type: ignore
+from sqlalchemy import BigInteger, DateTime, ForeignKey, ForeignKeyConstraint, String, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 
@@ -10,6 +10,14 @@ from app.core.database import Base
 
 class Anexo(Base):
     __tablename__ = "anexos"
+    __table_args__ = (
+        # Keep the existing single-column SET NULL action on occurrence deletion.
+        # Check the pair at commit after that referential action has completed.
+        ForeignKeyConstraint(
+            ["ocorrencia_id", "pedido_id"], ["ocorrencias.id", "ocorrencias.pedido_id"],
+            name="fk_anexos_ocorrencia_pedido", deferrable=True, initially="DEFERRED",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

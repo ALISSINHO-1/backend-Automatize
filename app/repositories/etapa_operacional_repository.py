@@ -21,7 +21,7 @@ class EtapaOperacionalRepository(BaseRepository[EtapaOperacional]):
         stmt = (
             select(EtapaOperacional)
             .where(EtapaOperacional.pedido_id == pedido_id)
-            .order_by(EtapaOperacional.created_at.asc(), EtapaOperacional.id.asc())
+            .order_by(EtapaOperacional.ordem.asc(), EtapaOperacional.created_at.asc(), EtapaOperacional.id.asc())
         )
 
         return self.db.scalars(stmt).all()

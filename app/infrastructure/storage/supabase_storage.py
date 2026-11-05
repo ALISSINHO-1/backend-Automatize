@@ -6,18 +6,19 @@ from uuid import UUID, uuid4
 
 from supabase import Client, create_client # type: ignore
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.infrastructure.storage.file_validation import MIME_POR_EXTENSAO, validar_arquivo
 
 
-def create_supabase_client() -> Client:
+def create_supabase_client(configured_settings: Settings | None = None) -> Client:
     """Create a client only when Storage is requested."""
-    if not settings.SUPABASE_URL:
+    configured = configured_settings if configured_settings is not None else settings
+    if not configured.SUPABASE_URL:
         raise RuntimeError("SUPABASE_URL não configurada.")
-    if not settings.SUPABASE_KEY:
+    if not configured.SUPABASE_KEY:
         raise RuntimeError("SUPABASE_KEY não configurada.")
     try:
-        url = urlsplit(settings.SUPABASE_URL)
+        url = urlsplit(configured.SUPABASE_URL)
         local_http = url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}
         if (
             not url.hostname or (url.scheme != "https" and not local_http)
@@ -27,7 +28,7 @@ def create_supabase_client() -> Client:
     except ValueError:
         raise RuntimeError("SUPABASE_URL deve usar HTTPS; HTTP permitido somente para ambiente local.") from None
     try:
-        return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        return create_client(configured.SUPABASE_URL, configured.SUPABASE_KEY)
     except Exception:
         raise RuntimeError("Falha ao configurar cliente Supabase.") from None
 
@@ -43,17 +44,24 @@ class StorageDeleteError(Exception):
     pass
 
 
+class StorageReadError(Exception):
+    pass
+
+
 class SupabaseStorage:
     def __init__(
         self,
         client: Client | None = None,
         bucket: str | None = None,
+        *,
+        configured_settings: Settings | None = None,
     ) -> None:
         if client is None:
-            client = create_supabase_client()
+            client = (create_supabase_client(configured_settings) if configured_settings is not None
+                      else create_supabase_client())
 
         self.client = client
-        self.bucket = bucket or settings.STORAGE_BUCKET_NAME
+        self.bucket = bucket or (configured_settings if configured_settings is not None else settings).STORAGE_BUCKET_NAME
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,99}", self.bucket):
             raise ValueError("Nome de bucket inválido.")
 
@@ -95,7 +103,8 @@ class SupabaseStorage:
 
         return caminho
 
-    def delete(self, caminho: str) -> None:
+    @staticmethod
+    def _validate_path(caminho: str) -> None:
         parts = caminho.split("/")
         try:
             if len(parts) != 3 or parts[0] != "pedidos":
@@ -107,6 +116,28 @@ class SupabaseStorage:
                 raise ValueError
         except (ValueError, AttributeError):
             raise StorageDeleteError("Caminho de Storage inválido.") from None
+
+    def create_signed_url(self, caminho: str, *, expires_in: int = 300) -> str:
+        try:
+            self._validate_path(caminho)
+            if type(expires_in) is not int or not 1 <= expires_in <= 600:
+                raise ValueError
+            response = self.client.storage.from_(self.bucket).create_signed_url(caminho, expires_in)
+            url = response.get("signedURL") or response.get("signedUrl")
+            if not isinstance(url, str):
+                raise ValueError
+            parsed = urlsplit(url)
+            if not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError
+            local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+            if parsed.scheme != "https" and not local_http:
+                raise ValueError
+            return url
+        except Exception:
+            raise StorageReadError("Nao foi possivel gerar acesso temporario ao arquivo.") from None
+
+    def delete(self, caminho: str) -> None:
+        self._validate_path(caminho)
         try:
             self.client.storage.from_(self.bucket).remove([caminho])
         except Exception:

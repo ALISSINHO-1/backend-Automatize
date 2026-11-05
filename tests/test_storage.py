@@ -20,6 +20,17 @@ def test_storage_settings_preserve_auth_and_default_bucket():
     assert "test-storage-secret" not in repr(configured)
 
 
+def test_storage_uses_injected_application_environment(monkeypatch):
+    configured = Settings(_env_file=None, SUPABASE_URL="https://isolated.example",
+                          SUPABASE_KEY="synthetic-injected-key", STORAGE_BUCKET_NAME="isolated-bucket")
+    client = MagicMock()
+    factory = MagicMock(return_value=client)
+    monkeypatch.setattr(infrastructure, "create_client", factory)
+    storage = SupabaseStorage(configured_settings=configured)
+    assert storage.bucket == "isolated-bucket"
+    factory.assert_called_once_with(configured.SUPABASE_URL, configured.SUPABASE_KEY)
+
+
 def test_legacy_module_import_is_lazy_and_shares_infrastructure_factory(monkeypatch):
     factory = MagicMock(return_value=MagicMock())
     monkeypatch.setattr(infrastructure, "create_supabase_client", factory)

@@ -50,18 +50,21 @@ def test_domain_routers_have_expected_prefixes() -> None:
     from app.api.v1.endpoints.auth import router as auth_router
     from app.api.v1.endpoints.demandas import router as demandas_router
     from app.api.v1.endpoints.demandas_acoes import router as demandas_acoes_router
+    from app.api.v1.endpoints.usuarios import router as usuarios_router
     from app.api.v1.router import endpoint_routers
 
     assert auth_router.prefix == "/auth"
     assert auth_router.tags == ["Autenticação"]
     assert demandas_router.prefix == "/demandas"
     assert demandas_router.tags == ["Demandas"]
-    assert [route.path for route in auth_router.routes] == ["/auth/login"]
+    assert [route.path for route in auth_router.routes] == ["/auth/login", "/auth/me"]
     assert [route.path for route in demandas_router.routes] == [
         "/demandas",
+        "/demandas/indicadores",
         "/demandas/{id}",
     ]
-    assert endpoint_routers == (auth_router, demandas_router, demandas_acoes_router)
+    assert endpoint_routers == (auth_router, demandas_router, demandas_acoes_router, usuarios_router)
+    assert usuarios_router.prefix == "/usuarios"
     assert demandas_acoes_router.prefix == "/demandas"
 
 
@@ -136,7 +139,7 @@ def test_health_does_not_open_a_database_connection(app_components, monkeypatch)
 
 def test_application_validates_required_settings_at_startup(app_components) -> None:
     Settings, create_app = app_components
-    unconfigured = Settings(_env_file=None)
+    unconfigured = Settings(_env_file=None, DATABASE_URL=None, JWT_SECRET_KEY=None)
 
     with pytest.raises(ValueError, match="DATABASE_URL é obrigatória"):
         with TestClient(create_app(unconfigured)):

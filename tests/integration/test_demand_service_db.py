@@ -245,9 +245,11 @@ def test_progresso_persistido_acompanha_etapas(db, service, atores, demanda):
     assert salva.concluida_por_id == atores["admin"].id
 
     service.alterar_status(atores["tecnico"], demanda.id, Status.HOMOLOGACAO)
-    assert [e.descricao for e in service.listar_etapas(atores["cliente"], demanda.id)] == [
-        "Etapa 0", "Etapa 1", "Etapa 2", "Etapa 3",
-    ]
+    ordered = list(service.listar_etapas(atores["cliente"], demanda.id))
+    assert {e.descricao for e in ordered} == {"Etapa 0", "Etapa 1", "Etapa 2", "Etapa 3"}
+    # A ordem explicita precede created_at e UUID; a sequencia de cadastro e preservada.
+    assert [e.id for e in ordered] == [e.id for e in etapas]
+    assert [e.ordem for e in ordered] == [1, 2, 3, 4]
 
 
 def test_regras_de_conclusao_de_etapa(service, atores, demanda, criar_usuario):
@@ -515,7 +517,8 @@ def test_atribuicao_somente_admin_e_somente_tecnico_ativo(db, service, atores, d
     with pytest.raises(RecursoNaoEncontradoException):
         service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["cliente"].id)
 
-    service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["outro_tecnico"].id)
+    service.atribuir_responsavel(atores["admin"], demanda.id, responsavel_id=atores["outro_tecnico"].id,
+                                 motivo="Tecnico anterior de ferias")
 
     assert _recarregar(db, demanda).responsavel_id == atores["outro_tecnico"].id
     log = db.scalars(select(AuditoriaLog).where(AuditoriaLog.acao == "ATRIBUICAO_RESPONSAVEL",
@@ -525,6 +528,7 @@ def test_atribuicao_somente_admin_e_somente_tecnico_ativo(db, service, atores, d
     assert log.detalhes == {
         "responsavel_anterior": str(atores["tecnico"].id),
         "responsavel_novo": str(atores["outro_tecnico"].id),
+        "motivo": "Tecnico anterior de ferias",
     }
 
 

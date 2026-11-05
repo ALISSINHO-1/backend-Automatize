@@ -3,9 +3,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.domain.models.enums import PerfilEnum
+from app.core.exceptions import AcessoNegadoException
 from app.domain.models.pedido import Pedido
 from app.domain.models.user import User
+from app.domain.schemas.demanda_filtros import DemandaFiltros
+from app.domain.regras import autorizacao
 from app.repositories.pedido_repository import PedidoRepository
 
 
@@ -21,13 +23,11 @@ class DemandaQueryService:
 
     @staticmethod
     def access_scope(user: User) -> dict[str, UUID]:
-        if user.perfil == PerfilEnum.ADMIN:
-            return {}
-        if user.perfil == PerfilEnum.CLIENTE:
-            return {"cliente_id": user.id}
-        if user.perfil == PerfilEnum.TECNICO:
-            return {"responsavel_id": user.id}
-        raise DemandAccessDenied
+        # Mesma politica das rotas de escrita (regras.autorizacao, SCRUM-95).
+        try:
+            return autorizacao.escopo_leitura(user)
+        except AcessoNegadoException:
+            raise DemandAccessDenied from None
 
     def list_demands(
         self,
@@ -35,13 +35,19 @@ class DemandaQueryService:
         *,
         offset: int,
         limit: int,
+        filtros: DemandaFiltros | None = None,
     ) -> Sequence[Pedido]:
         scope = self.access_scope(user)
+        if filtros is not None:
+            scope = {**scope, "filtros": filtros}
         return self.pedidos.list_for_access_scope(
             offset=offset,
             limit=limit,
             **scope,
         )
+
+    def indicadores(self, user: User, filtros: DemandaFiltros):
+        return self.pedidos.indicadores_for_access_scope(filtros=filtros, **self.access_scope(user))
 
     def get_demand(self, user: User, pedido_id: UUID) -> Pedido | None:
         scope = self.access_scope(user)

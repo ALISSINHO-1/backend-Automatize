@@ -1,4 +1,8 @@
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.domain.models.enums import PerfilEnum
 
 
 class LoginRequest(BaseModel):
@@ -25,3 +29,15 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+
+class UsuarioAtualResponse(BaseModel):
+    """Identidade do dono do token. O JWT so carrega o `sub`; o front precisa
+    do perfil para decidir quais telas mostrar (a autorizacao real continua no backend)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nome: str
+    email: str
+    perfil: PerfilEnum

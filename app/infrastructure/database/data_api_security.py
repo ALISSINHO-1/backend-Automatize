@@ -16,7 +16,7 @@ DOMAIN_TABLES = (
 # The existing HML migration 7b2d4e6f8a10 also protects Alembic's metadata.
 PROTECTED_TABLES = (*DOMAIN_TABLES, "alembic_version")
 CLIENT_ROLES = ("anon", "authenticated")
-PRIVILEGES = ("select", "insert", "update", "delete", "truncate", "references", "trigger")
+PRIVILEGES = ("select", "insert", "update", "delete", "truncate", "references", "trigger", "maintain")
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,9 @@ def inspect_access(connection: Connection) -> list[dict[str, Any]]:
             has_table_privilege(r.oid,c.oid,'DELETE') AS delete,
             has_table_privilege(r.oid,c.oid,'TRUNCATE') AS truncate,
             (has_table_privilege(r.oid,c.oid,'REFERENCES') OR has_any_column_privilege(r.oid,c.oid,'REFERENCES')) AS references,
-            has_table_privilege(r.oid,c.oid,'TRIGGER') AS trigger
+            has_table_privilege(r.oid,c.oid,'TRIGGER') AS trigger,
+            CASE WHEN current_setting('server_version_num')::integer >= 170000
+                THEN has_table_privilege(r.oid,c.oid,'MAINTAIN') ELSE false END AS maintain
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         CROSS JOIN pg_roles r
         WHERE n.nspname='public' AND c.relkind IN ('r','p')
