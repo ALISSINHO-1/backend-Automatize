@@ -22,7 +22,7 @@ def test_apply_is_refused_before_reading_settings_or_connecting(monkeypatch):
     engine.assert_not_called()
 
 
-def test_inventory_receipt_has_ids_and_hashes_but_no_object_names():
+def test_inventory_receipt_has_ids_and_hashes_but_no_object_names(monkeypatch):
     now = datetime(2026, 11, 2, tzinfo=timezone.utc)
     object_id, order_id = uuid4(), uuid4()
     path = f"pedidos/{order_id}/{uuid4()}.pdf"
@@ -30,7 +30,10 @@ def test_inventory_receipt_has_ids_and_hashes_but_no_object_names():
     connection.exec_driver_sql.side_effect = [None, MagicMock(scalar_one=lambda: "on"),
         MagicMock(scalars=lambda: []), MagicMock(scalars=lambda: []), MagicMock(scalar_one=lambda: now)]
     connection.execute.return_value = [(path, now, now, object_id)]
+    visibility = MagicMock()
+    monkeypatch.setattr(reconcile_storage, "require_complete_inventory_access", visibility)
     result = reconcile_storage.inventory(connection, "synthetic-bucket")
+    visibility.assert_called_once_with(connection, "synthetic-bucket")
     assert result["objects"][0]["storage_object_id"] == str(object_id)
     assert result["objects"][0]["object_sha256"] == sha256(path.encode()).hexdigest()
     assert result["apply_supported"] is False

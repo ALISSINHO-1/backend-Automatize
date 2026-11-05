@@ -15,6 +15,12 @@ incompleto; ausência de permissão não equivale a bucket vazio. Não há pagin
 do SDK nem download de arquivos. O inventário SQL não comprova a existência dos
 bytes físicos; isso exige consulta ao serviço de Storage.
 
+Na preparação sobre `a462850`, o inventário também passou a exigir visibilidade
+completa de anexos/pedidos e de storage.buckets/storage.objects. Falta de SELECT,
+RLS filtrando linhas, bucket inexistente ou público abortam o inventário, sem
+criar recibo completo. Isso fecha a lacuna entre a verificação posterior e a
+captura inicial. Não concede privilégios nem altera policies.
+
 O recibo contém IDs opacos, hashes dos caminhos/bucket, timestamps, contagens,
 integridade SHA-256 e `apply_supported=false`; não contém credenciais nem nomes
 de objetos. O hash detecta alteração em relação ao recibo aprovado; não autentica
@@ -145,3 +151,22 @@ desabilitada, inclusive após todos os testes locais passarem.
 testados localmente; estratégia e ensaio de revisão disponíveis. Limpeza real
 continua pendente de capacidade técnica comprovada, aprovação e execução
 operacional. Não classificar a limpeza como concluída ou aplicada no Supabase.
+
+## Complemento operacional sobre a462850
+
+O mapa de escritores, alternativas de quarentena, coordenação global, auditoria
+durável e o plano separado de backup/restore dos bytes estão em
+[storage-backup-recovery-runbook.md](storage-backup-recovery-runbook.md).
+Quarentena lógica mantém o objeto original; mover/copiar e depois excluir não
+elimina a corrida e continua sem implementação destrutiva.
+
+Testes novos exercitam o adapter real sobre SDK simulado em outra thread, com
+PostgreSQL real: bytes chegam antes do commit, o inventário os recusa como recentes,
+commit posterior passa a proteger a referência, timeout tenta compensação e falha
+da compensação deixa estado explícito para revisão. Reutilização de caminho
+referenciado não remove essa proteção. As recusas existentes de ID/versão trocados,
+referência concorrente e falha de rede continuam na suíte.
+
+HML/main já receberam PR13/15 remotamente; isso não implanta as proteções no
+Supabase nem integra o complemento a462850 a essas branches. A branch local
+continua sem alterações de contratos, sem novas migrations e com apply recusado.

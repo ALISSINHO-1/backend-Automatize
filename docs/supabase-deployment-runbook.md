@@ -1,6 +1,7 @@
 # Supabase — runbook de implantação das proteções
 
 Preparado em 2026-11-05 para revisão. **Não executado no Supabase compartilhado.**
+Base atual da preparação: `Henrique-Silva` no commit `a462850`.
 As instruções de alteração deste documento são para uma futura janela aprovada;
 não constituem autorização. A sessão atual usou apenas PostgreSQL descartável.
 
@@ -16,9 +17,19 @@ Escolher explicitamente uma entrega:
 
 | Artefato | Head esperada | Dependência |
 | --- | --- | --- |
-| PR #14, base 3ef5080 | d8f4a2c6e901 | schema/contratos PR14 |
-| PR #13, e63b0e5 | e3b7c1d9f402 | PR14 e aceite das regras do Luís |
-| PR #15, df6f3b4 | f9a2d4c6b803 | PR13 e aceite dos novos contratos |
+| Henrique-Silva, a462850 | d8f4a2c6e901 | complemento operacional e schema local desta branch |
+| Snapshot histórico PR13, e63b0e5 | e3b7c1d9f402 | contrato anterior ao complemento PR15 |
+| main e7a5d48 / HML 2e26b03 | f9a2d4c6b803 | PR13 + PR15 já integrados remotamente |
+
+Consulta atual ao GitHub confirmou PR14 fechado/merged com head **3ef5080**, e
+PR15 fechado/merged em Luís e6f197f, seguido de HML e main. O complemento a462850
+não está nesses HEADs. Nada foi integrado nesta sessão. A mudança no Git não
+comprova que migrations tenham sido aplicadas no Supabase.
+
+Os três últimos commits citados na tabela são snapshots diferentes. Não executar
+o migrador/schema_preflight da branch d8 sobre banco f9 como se fosse o mesmo
+artefato: f9 é desconhecida nessa cadeia local e será recusada. Selecionar primeiro
+o artefato integrado/revisado, incluindo models e migrations correspondentes.
 
 Não implantar binário PR13/15 sobre schema PR14. Não copiar migrations isoladas,
 não criar uma segunda cadeia equivalente e não executar os SQLs de documentação
@@ -79,6 +90,32 @@ EXECUTE em funções. Usar `scripts.audit_technical_state` e
 `scripts.audit_data_api_access` em modo leitura, guardando apenas evidências
 sanitizadas. Catálogos com definições de policies podem conter dados operacionais;
 não publicar dump bruto.
+
+Há consultas reproduzíveis em
+[`security/supabase-readonly-preflight.sql`](security/supabase-readonly-preflight.sql).
+O arquivo usa REPEATABLE READ READ ONLY, timeouts, catálogos qualificados e termina
+em ROLLBACK. Abrange revisão, colunas/defaults/constraints/índices, RLS/FORCE,
+grants de tabela/coluna/PUBLIC, MAINTAIN, defaults por criador, roles/memberships,
+funções/EXECUTE, triggers, policies e contagens do catálogo Storage. Não exporta
+linhas de usuários/anexos nem paths dos objetos. Políticas/defaults são evidência
+restrita: não publicar a saída bruta. Se Storage/tabelas não existirem ou faltar
+permissão, interromper, em vez de interpretar erro como inventário vazio.
+
+Com TLS/credenciais de leitura já fornecidos por mecanismo seguro, um operador
+autorizado pode executar futuramente:
+
+```powershell
+# Somente parâmetros de sessão, sem URL/senha; ajustar bucket à configuração revisada.
+$env:PGOPTIONS = '-c default_transaction_read_only=on -c automatize.audit_bucket=evidencias-anexos'
+psql -X -v ON_ERROR_STOP=1 -f docs/security/supabase-readonly-preflight.sql
+```
+
+Confirmar read_only=on, bucket_configured=true, bucket existente/privado e
+full_visibility_required=true. Contagens NULL representam leitura não comprovada,
+nunca zero aprovado. O arquivo sempre informa cleanup/deployment_authorized=false.
+Os testes executam essas consultas apenas contra catálogo Storage simulado em
+PostgreSQL descartável. Nenhuma consulta deste arquivo foi executada no Supabase
+compartilhado nesta rodada.
 
 ### Pré-validação executável por manifesto
 
@@ -176,7 +213,9 @@ WHERE p.status='HOMOLOGACAO' AND (
 Se uma tabela não existir na revisão descoberta, ajustar a consulta àquela revisão
 e registrar a ausência. Não corrigir dados, excluir duplicatas ou usar `stamp`
 para contornar divergência. A inicial `fbfba8e84540` era baseline sem DDL na main
-e contém DDL no PR14/HML: rótulo igual não comprova schema igual. Validar catálogo
+histórica `2c02343`; a main atual já recebeu o DDL via integração. A divergência
+histórica ainda importa para instalações que guardem o mesmo ID com outro catálogo.
+Rótulo igual não comprova schema igual. Validar catálogo
 da instalação existente antes de decidir qualquer caminho de upgrade.
 
 ## Ordem e execução futura autorizada
@@ -275,8 +314,75 @@ ACLs são comparadas por privilégio/grantor/grantee/grant option, evitando fals
 diferenças de ordem/representação. Endpoint libpq ambíguo e IPv6 alternativo são
 recusados antes do dump; localhost é vinculado à publicação Docker IPv4 conferida.
 
-O resultado completo está em `pr14-final-review.json`. Limites: restauração entre
+O registro anterior está em `pr14-final-review.json`; a execução nova sobre
+`a462850` está em `scrum87-supabase-preparation.json`. Limites: restauração entre
 bancos do mesmo cluster reutiliza as roles globais; não comprova recuperação de
 roles/credenciais em outro cluster nem restauração dos bytes do Storage. Estes
 itens continuam obrigatórios antes do deploy real. Dumps, dados sintéticos e
 evidências locais são preservados fora da entrega Git.
+
+## Procedimento PostgreSQL de backup para a janela autorizada
+
+Os comandos abaixo são preparação para operação futura; não foram executados
+contra produção. Usar ferramentas PostgreSQL 17 compatíveis com o servidor,
+credenciais por cofre/PGPASSFILE, TLS verificado e diretório restrito/criptografado.
+Parar escritores e alterações de roles durante a captura do ponto aprovado.
+
+```powershell
+# PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSFILE/PGSSLMODE já configurados com segurança.
+$backupDir = '.pytest_tmp_pg_backup_' + [guid]::NewGuid().ToString('N')
+New-Item -ItemType Directory -Path $backupDir -ErrorAction Stop
+pg_dump --format=custom --file (Join-Path $backupDir 'database.dump')
+if ($LASTEXITCODE -ne 0) { throw 'Backup PostgreSQL indisponível; interromper.' }
+pg_dumpall --roles-only --no-role-passwords --file (Join-Path $backupDir 'roles-no-passwords.sql')
+if ($LASTEXITCODE -ne 0) { throw 'Inventário de roles incompleto; interromper.' }
+Get-FileHash (Join-Path $backupDir 'database.dump') -Algorithm SHA256
+Get-FileHash (Join-Path $backupDir 'roles-no-passwords.sql') -Algorithm SHA256
+```
+
+O dump customizado preserva ACLs/owners/default privileges por padrão; não usar
+no-owner/no-privileges/clean para produzir evidência de restauração fiel. O
+[dump de roles sem senhas](https://www.postgresql.org/docs/17/app-pg-dumpall.html)
+não guarda credenciais: recuperação de segredos é procedimento de cofre separado.
+No Supabase, roles/objetos geridos e extensões podem exigir o fluxo suportado pelo
+provedor. Falta de permissão não autoriza ignorar erros ou ampliar privilégios.
+
+Restaurar em destino novo e isolado, com versões/extensões/roles revisadas antes
+de aplicar ACLs. Revisar o arquivo de roles e não o executar indiscriminadamente
+no cluster compartilhado ou sobre roles geridas. Preservar erro e artefatos de
+tentativa parcial; investigar e repetir em novo destino, sem limpar dados reais.
+
+O helper `scripts.validate_hml_restore` aceita somente fonte local ligada ao
+contêiner auditado; ele não é um importador genérico de Supabase. O ensaio desta
+rodada usa dados sintéticos novos e compara linhas, catálogo e segurança. Globals
+são reutilizados no mesmo cluster; teste de recriação de credenciais/roles entre
+clusters continua gate operacional, sem alegação de comprovação local completa.
+
+## Backup e recuperação independentes do Storage
+
+Seguir [storage-backup-recovery-runbook.md](storage-backup-recovery-runbook.md).
+O PostgreSQL guarda metadados, não os bytes. Exigir snapshot coordenado dos dois
+sistemas, cópia externa criptografada, SHA-256 por arquivo, inventário completo,
+manifesto aprovado e restore por API para bucket/projeto novo e privado.
+Não aceitar catálogo restaurado como arquivo existente nem usar DELETE SQL para
+consertar divergências. Quarentena física também exige as garantias de corrida;
+a alternativa imediata é quarentena lógica, sem alterar o objeto original.
+
+## Checklist final de autorização
+
+- [ ] Artefato e revisão alvo fixados, compatíveis com a integração PR13/15.
+- [ ] Revisão/catálogo real conferidos, incluindo o baseline histórico reescrito.
+- [ ] Backup PostgreSQL e globals revisados, checksums e restauração comprovada.
+- [ ] Backup independente dos bytes do Storage e recuperação isolada comprovada.
+- [ ] Role runtime/migrator, heranças, defaults, RLS, EXECUTE e policies revisados.
+- [ ] Inventário integral visível e bucket privado/configurado corretamente.
+- [ ] Escritores, uploads, retries e compensações drenados de forma comprovada.
+- [ ] Janela, RPO/RTO, responsáveis e plano de recuperação aprovados.
+- [ ] Somente após aprovação: aplicar a revisão fixada e repetir gates de API/banco.
+- [ ] Encerrar se houver erro, estado desconhecido, drift, timeout, grant herdado,
+      perda de visibilidade, objeto substituído ou restore não comprovado.
+
+Esses itens do ambiente real permanecem sem marcação nesta sessão. Sem aceite,
+não há implantação. Sem garantia técnica de remoção, nem mesmo o aceite de deploy
+autoriza limpeza. Resultado atual e evidências: `scrum87-supabase-preparation.md`
+e `scrum87-supabase-preparation.json`, separados dos relatórios históricos.
