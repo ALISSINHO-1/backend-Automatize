@@ -1,20 +1,269 @@
-﻿from typing import Optional
+from __future__ import annotations
+
+from typing import Optional, Sequence
+from uuid import UUID
+
+from sqlalchemy.exc import IntegrityError # type: ignore
+from sqlalchemy.orm import Session # type: ignore
+
 from app.domain.enums import StatusPedidoEnum
+from app.domain.models.pedido import Pedido
+from app.domain.regras import ciclo_vida
+from app.core.exceptions import RegistroImutavelException, TransicaoEstadoInvalidaException
+from app.repositories.etapa_operacional_repository import EtapaOperacionalRepository
+from app.repositories.historico_status_pedido_repository import (
+    HistoricoStatusPedidoRepository,
+)
+from app.repositories.pedido_repository import PedidoRepository
+from app.repositories.user_repository import UserRepository
+from app.domain.models.enums import PerfilEnum
+from app.core.exceptions import AcessoNegadoException, RecursoNaoEncontradoException
+from app.schemas.pedido import PedidoCreate, PedidoUpdate
+
+
+class PedidoNaoEncontradoError(Exception):
+    pass
+
+
+class CodigoPedidoDuplicadoError(Exception):
+    pass
+
 
 class PedidoService:
-    """Núcleo de regras do ciclo de vida e progresso (POO)."""
+    """Service responsável pelas regras e operações relacionadas aos pedidos."""
+
+    def __init__(
+        self,
+        db: Session,
+        repository: PedidoRepository | None = None,
+        historico_repository: HistoricoStatusPedidoRepository | None = None,
+        etapas_repository: EtapaOperacionalRepository | None = None,
+    ) -> None:
+        self.db = db
+        self.repository = repository or PedidoRepository(db)
+        self.historico_repository = (
+            historico_repository
+            if historico_repository is not None
+            else HistoricoStatusPedidoRepository(db)
+        )
+        self.etapas_repository = etapas_repository or EtapaOperacionalRepository(db)
+        self.users = UserRepository(db)
+
+    # ------------------------------------------------------------------
+    # Regras de ciclo de vida (implementadas em app.domain.regras.ciclo_vida)
+    # ------------------------------------------------------------------
 
     @classmethod
     def calcular_progresso(cls, status: StatusPedidoEnum) -> float:
-        # TODO: implementar calculo percentual automatico
-        pass
+        """Percentual de progresso padrão do status (sem considerar etapas)."""
+        return float(ciclo_vida.calcular_progresso(status))
 
     @classmethod
     def validar_e_transitar(
         cls,
         status_atual: StatusPedidoEnum,
         novo_status: StatusPedidoEnum,
-        motivo_regresso: Optional[str] = None
+        motivo_regresso: Optional[str] = None,
+        *,
+        total_etapas: int = 0,
+        etapas_pendentes: tuple[str, ...] = (),
     ) -> float:
-        # TODO: implementar maquina de estados estrita
-        pass
+        """
+        Valida uma transição pela máquina de estados e devolve o novo progresso.
+
+        A conclusão não é permitida aqui: ela exige aceite formal
+        (AprovacaoService / DemandService.aprovar_homologacao).
+        """
+        ciclo_vida.validar_transicao(
+            status_atual,
+            novo_status,
+            total_etapas=total_etapas,
+            etapas_pendentes=etapas_pendentes,
+            motivo_regresso=motivo_regresso,
+        )
+        return cls.calcular_progresso(novo_status)
+
+    # ------------------------------------------------------------------
+    # Consultas
+    # ------------------------------------------------------------------
+
+    def listar(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> Sequence[Pedido]:
+        return self.repository.get_all(
+            offset=offset,
+            limit=limit,
+        )
+
+    def buscar_por_id(
+        self,
+        pedido_id: UUID,
+    ) -> Pedido:
+        pedido = self.repository.get_by_id(pedido_id)
+
+        if pedido is None:
+            raise PedidoNaoEncontradoError(
+                f"Pedido {pedido_id} não encontrado."
+            )
+
+        return pedido
+
+    def buscar_por_codigo(
+        self,
+        codigo: str,
+    ) -> Pedido:
+        pedido = self.repository.get_by_codigo(codigo)
+
+        if pedido is None:
+            raise PedidoNaoEncontradoError(
+                f"Pedido '{codigo}' não encontrado."
+            )
+
+        return pedido
+
+    # ------------------------------------------------------------------
+    # Criação
+    # ------------------------------------------------------------------
+
+    def criar(
+        self,
+        dados: PedidoCreate,
+    ) -> Pedido:
+        pedido_existente = self.repository.get_by_codigo(
+            dados.codigo_identificador
+        )
+
+        if pedido_existente is not None:
+            raise CodigoPedidoDuplicadoError(
+                "Já existe um pedido com o código "
+                f"'{dados.codigo_identificador}'."
+            )
+
+        try:
+            pedido = self.repository.create(
+                dados.model_dump()
+            )
+
+            self.db.commit()
+            self.db.refresh(pedido)
+
+            return pedido
+
+        except IntegrityError:
+            self.db.rollback()
+            raise
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+    # ------------------------------------------------------------------
+    # Atualização
+    # ------------------------------------------------------------------
+
+    def atualizar(
+        self,
+        pedido_id: UUID,
+        dados: PedidoUpdate,
+        usuario_id: UUID | None = None,
+    ) -> Pedido:
+        dados_atualizacao = dados.model_dump(
+            exclude_unset=True
+        )
+
+        try:
+            # The stale-read regression was reproduced in two PostgreSQL
+            # transactions. Reload under the same order lock as DemandService.
+            pedido = self.repository.get_by_id_for_update(pedido_id)
+            if pedido is None:
+                raise PedidoNaoEncontradoError("Pedido não encontrado.")
+            status_anterior = pedido.status
+            if status_anterior == StatusPedidoEnum.CONCLUIDO:
+                raise RegistroImutavelException("Demandas CONCLUIDAS sao imutaveis.")
+
+            if usuario_id is None:
+                raise ValueError("usuario_id é obrigatório para atualização de pedido.")
+            # Lazy import avoids the existing DemandService/exception dependency.
+            from app.services.demand_service import DemandService
+            central = DemandService(self.db)
+            usuario = self.users.get_by_id(usuario_id)
+            central._exigir_usuario_ativo(usuario)
+            if not (central._is_admin(usuario) or central._is_cliente_dono(usuario, pedido)
+                    or central._is_responsavel(usuario, pedido)):
+                raise RecursoNaoEncontradoException("Demanda nao encontrada.")
+            if {"titulo", "descricao"} & dados_atualizacao.keys():
+                if not (central._is_admin(usuario) or central._is_cliente_dono(usuario, pedido)):
+                    raise AcessoNegadoException("Somente o cliente ou ADMIN pode editar a demanda.")
+            if "responsavel_id" in dados_atualizacao:
+                central._exigir_perfil(usuario, PerfilEnum.ADMIN)
+                central._obter_usuario_com_perfil(
+                    dados_atualizacao["responsavel_id"], PerfilEnum.TECNICO, "responsavel",
+                )
+            novo_status = dados_atualizacao.get("status")
+            mudou_status = novo_status is not None and novo_status != status_anterior
+            if "status" in dados_atualizacao and novo_status is None:
+                raise ValueError("status não pode ser nulo.")
+            if "percentual_progresso" in dados_atualizacao and not mudou_status:
+                raise ValueError("O progresso é calculado pelas etapas e pelo estado.")
+
+            if mudou_status:
+                etapas = self.etapas_repository.get_by_pedido(pedido.id)
+                central.validar_alteracao_status(usuario, pedido, novo_status, etapas)
+                # O progresso acompanha o estado; um percentual enviado junto seria inconsistente.
+                dados_atualizacao["percentual_progresso"] = ciclo_vida.calcular_progresso(
+                    novo_status,
+                    len(etapas),
+                    sum(1 for e in etapas if e.concluida),
+                )
+
+            pedido = self.repository.update(
+                pedido,
+                dados_atualizacao,
+            )
+
+            central._auditar(usuario, pedido, "ATUALIZACAO_PEDIDO_LEGADO", {
+                "campos": sorted(dados_atualizacao),
+                "status_anterior": status_anterior.value if status_anterior is not None else None,
+                "status_novo": novo_status.value if novo_status is not None else None,
+            })
+
+            if mudou_status:
+                self.historico_repository.create(
+                    {
+                        "pedido_id": pedido.id,
+                        "status_anterior": status_anterior,
+                        "status_novo": novo_status,
+                        "usuario_id": usuario_id,
+                    }
+                )
+
+            self.db.commit()
+            self.db.refresh(pedido)
+
+            return pedido
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+    # ------------------------------------------------------------------
+    # Exclusão
+    # ------------------------------------------------------------------
+
+    def excluir(
+        self,
+        pedido_id: UUID,
+    ) -> None:
+        pedido = self.buscar_por_id(pedido_id)
+
+        try:
+            self.repository.delete(pedido)
+
+            self.db.commit()
+
+        except Exception:
+            self.db.rollback()
+            raise

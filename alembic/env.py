@@ -1,14 +1,10 @@
-import os
 from logging.config import fileConfig
-from dotenv import load_dotenv # type: ignore
 
 from sqlalchemy import engine_from_config, pool # type: ignore
 from alembic import context
 
-# 1. Carrega as variáveis de ambiente do .env
-load_dotenv()
-
-# 2. Importa a Base declarativa
+# Import model metadata without requiring API-only JWT settings.
+from app.core.config import Settings
 from app.core.database import Base
 import app.domain.models  # noqa: F401
 
@@ -18,9 +14,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # 3. Injeta a DATABASE_URL do .env na configuração do Alembic
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+db_url = Settings().validate_database_configuration()
+# ConfigParser treats percent signs as interpolation, including URL escapes.
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 # 4. Associa os metadados do SQLAlchemy ao Alembic
 target_metadata = Base.metadata

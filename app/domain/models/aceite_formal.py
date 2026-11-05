@@ -1,15 +1,23 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, text # type: ignore
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, event, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 
 from app.core.database import Base
+from app.core.exceptions import RegistroImutavelException
 
 
 class AceiteFormal(Base):
+    """Aceite formal do cliente. Imutavel apos gravado (SCRUM-72): o ORM recusa
+    UPDATE/DELETE e o banco tem trigger com a mesma regra."""
+
     __tablename__ = "aceites_formais"
+
+    __table_args__ = (
+        UniqueConstraint("pedido_id", name="uq_aceites_formais_pedido_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -54,3 +62,9 @@ class AceiteFormal(Base):
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
     )
+
+
+@event.listens_for(AceiteFormal, "before_update")
+@event.listens_for(AceiteFormal, "before_delete")
+def _bloquear_alteracao_aceite(mapper, connection, target) -> None:
+    raise RegistroImutavelException("O aceite formal e imutavel e nao pode ser alterado nem excluido.")

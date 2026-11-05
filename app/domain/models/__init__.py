@@ -4,6 +4,8 @@ from app.domain.models.ocorrencia import Ocorrencia
 from app.domain.models.anexo import Anexo
 from app.domain.models.aceite_formal import AceiteFormal
 from app.domain.models.auditoria_log import AuditoriaLog
+from app.domain.models.historico_status_pedido import HistoricoStatusPedido
+from app.domain.models.etapa_operacional import EtapaOperacional
 
 __all__ = [
     "User",
@@ -12,4 +14,6 @@ __all__ = [
     "Anexo",
     "AceiteFormal",
     "AuditoriaLog",
+    "HistoricoStatusPedido",
+    "EtapaOperacional",
 ]

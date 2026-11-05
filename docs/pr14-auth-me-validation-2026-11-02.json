@@ -1,0 +1,503 @@
+{
+  "date": "2026-11-02",
+  "classification": "PRONTO PARA REVISAO",
+  "branch": "Henrique-Silva",
+  "base_commit_tested": "da7e4285d4fd7f0c6f9e290adb18c8aacdd77bf2",
+  "origin": {
+    "branch": "origin/Luis-Santini",
+    "commit": "c51d972280bfa3bd647d0b239221fdc57c010fd1",
+    "subject": "FEAT: adiciona GET /auth/me com o perfil do usuário autenticado (SCRUM-95)",
+    "parent": "f4f89e787cde2333f4b99696e7c9d15a61fdfabb",
+    "remote_refs": {
+      "origin/main": "2c023432521d521e0055a2129b1d34b44445ab9a",
+      "origin/HML": "f4f89e787cde2333f4b99696e7c9d15a61fdfabb",
+      "origin/Luis-Santini": "c51d972280bfa3bd647d0b239221fdc57c010fd1",
+      "origin/Alisson-Rodrigues": "0bdd681722ecb56ec18a674d2998e3a21eda76d0"
+    },
+    "exists_in_main": false,
+    "exists_in_HML": false,
+    "endpoint_and_schema_identical_to_origin": {
+      "app/api/v1/endpoints/auth.py": true,
+      "app/domain/schemas/auth_schema.py": true
+    },
+    "original_test_functions_preserved": {
+      "test_me_retorna_id_nome_email_e_perfil": true,
+      "test_me_nao_expoe_hash_da_senha": true,
+      "test_me_sem_token_retorna_401_generico": true,
+      "test_me_com_usuario_inativo_retorna_401": true
+    },
+    "integration_method": "git diff of the four original files, git apply --check, git apply; no merge or commit"
+  },
+  "contract": {
+    "method": "GET",
+    "path": "/auth/me",
+    "authentication": "existing Bearer JWT via get_current_user",
+    "response_fields": {
+      "id": "UUID string",
+      "nome": "string",
+      "email": "string",
+      "perfil": [
+        "ADMIN",
+        "TECNICO",
+        "CLIENTE"
+      ]
+    },
+    "success_status": 200,
+    "missing_invalid_expired_inactive_deleted_status": 401,
+    "unauthorized_detail": "Não foi possível autenticar.",
+    "challenge": "WWW-Authenticate: Bearer",
+    "identity_source": "persisted user selected only by validated JWT sub",
+    "password_hash_or_token_in_response": false
+  },
+  "frontend": {
+    "modified": false,
+    "local_identity_provider_found": false,
+    "current_login_navigation": "/home",
+    "existing_interceptor_attaches_bearer": true,
+    "response_contains_fields_needed_for_profile_routing": true,
+    "frontend_routing_integration_claimed": false
+  },
+  "environment": {
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "packages": {
+      "SQLAlchemy": "2.1.6",
+      "alembic": "1.20.1",
+      "psycopg2-binary": "2.9.13",
+      "pytest": "9.2.0",
+      "fastapi": "0.162.0",
+      "starlette": "1.10.0",
+      "httpx": "0.28.1"
+    },
+    "postgresql": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "test_database_url_masked": "postgresql+psycopg2://***:***@127.0.0.1:55417/automatize_pr14_test",
+    "pip_check": "No broken requirements found.",
+    "clean_install_evidence": "pr14-validation-2026-11-02.json"
+  },
+  "alembic": {
+    "current": "b6e1c8a4d230",
+    "heads": [
+      "b6e1c8a4d230"
+    ],
+    "check": "No new upgrade operations detected.",
+    "new_migrations": false
+  },
+  "focused_tests": {
+    "passed": 72,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warnings": 1,
+    "seconds": 18.809,
+    "modules": {
+      "tests.test_auth_me": {
+        "passed": 13
+      },
+      "tests.test_auth_login": {
+        "passed": 26
+      },
+      "tests.test_demandas_auth": {
+        "passed": 16
+      },
+      "tests.test_main": {
+        "passed": 9
+      },
+      "tests.integration.test_auth_me_api": {
+        "passed": 8
+      }
+    },
+    "auth_me_cases": [
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[ADMIN]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[CLIENTE]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[TECNICO]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_nao_expoe_hash_da_senha",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_sem_token_retorna_401_generico",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_com_usuario_inativo_retorna_401",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[malformed]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[expired]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[wrong-signature]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_usuario_inexistente_retorna_401_generico",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_ignora_identidade_fornecida_fora_do_subject",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_falha_de_persistencia_permanece_erro_do_servidor",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_documenta_o_bearer_e_o_contrato_de_identidade",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[ADMIN]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[CLIENTE]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[TECNICO]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_revalida_usuario_persistido_depois_do_login[deactivated]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_revalida_usuario_persistido_depois_do_login[deleted]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_retorna_perfil_atual_do_banco",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_recusa_credenciais_invalidas[missing]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_recusa_credenciais_invalidas[invalid]",
+        "passed": true
+      }
+    ]
+  },
+  "full_suite": {
+    "passed": 654,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warnings": 1,
+    "seconds": 106.911,
+    "modules": {
+      "tests.integration.test_attachment_storage_transactions": {
+        "passed": 4
+      },
+      "tests.integration.test_auth_me_api": {
+        "passed": 8
+      },
+      "tests.integration.test_concurrency_postgres": {
+        "passed": 6
+      },
+      "tests.integration.test_demand_service_db": {
+        "passed": 47
+      },
+      "tests.integration.test_demandas_acoes_api": {
+        "passed": 10
+      },
+      "tests.integration.test_hml_dataset": {
+        "passed": 2
+      },
+      "tests.integration.test_legacy_update_authorization": {
+        "passed": 8
+      },
+      "tests.integration.test_migration_upgrade": {
+        "passed": 2
+      },
+      "tests.integration.test_postgres_security": {
+        "passed": 28
+      },
+      "tests.integration.test_scrum71_homologacao": {
+        "passed": 18
+      },
+      "tests.integration.test_user_queries_api": {
+        "passed": 3
+      },
+      "tests.repositories.test_base_repository": {
+        "passed": 8
+      },
+      "tests.repositories.test_demo_environment_seed": {
+        "passed": 14
+      },
+      "tests.repositories.test_historico_status_pedido_repository": {
+        "passed": 3
+      },
+      "tests.repositories.test_pedido_repository": {
+        "passed": 7
+      },
+      "tests.repositories.test_persistence_security": {
+        "passed": 41
+      },
+      "tests.services.test_anexo_service": {
+        "passed": 47
+      },
+      "tests.services.test_aprovacao_service": {
+        "passed": 19
+      },
+      "tests.services.test_pedido_service": {
+        "passed": 24
+      },
+      "tests.test_attachment_validation": {
+        "passed": 53
+      },
+      "tests.test_auth_login": {
+        "passed": 26
+      },
+      "tests.test_auth_me": {
+        "passed": 13
+      },
+      "tests.test_config_database": {
+        "passed": 29
+      },
+      "tests.test_data_api_security": {
+        "passed": 51
+      },
+      "tests.test_demandas_auth": {
+        "passed": 16
+      },
+      "tests.test_demo_user_seed": {
+        "passed": 10
+      },
+      "tests.test_main": {
+        "passed": 9
+      },
+      "tests.test_migrations_constraints": {
+        "passed": 2
+      },
+      "tests.test_postgres_tls": {
+        "passed": 44
+      },
+      "tests.test_regras_ciclo_vida": {
+        "passed": 36
+      },
+      "tests.test_storage": {
+        "passed": 23
+      },
+      "tests.test_storage_reconciliation": {
+        "passed": 11
+      },
+      "tests.test_validacao_arquivos": {
+        "passed": 32
+      }
+    },
+    "auth_me_cases": [
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[ADMIN]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[CLIENTE]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_login_e_me_retornam_somente_o_usuario_do_token[TECNICO]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_revalida_usuario_persistido_depois_do_login[deactivated]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_revalida_usuario_persistido_depois_do_login[deleted]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_retorna_perfil_atual_do_banco",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_recusa_credenciais_invalidas[missing]",
+        "passed": true
+      },
+      {
+        "module": "tests.integration.test_auth_me_api",
+        "test": "test_me_recusa_credenciais_invalidas[invalid]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[ADMIN]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[CLIENTE]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_retorna_id_nome_email_e_perfil[TECNICO]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_nao_expoe_hash_da_senha",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_sem_token_retorna_401_generico",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_com_usuario_inativo_retorna_401",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[malformed]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[expired]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_token_invalido_retorna_401_generico[wrong-signature]",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_usuario_inexistente_retorna_401_generico",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_ignora_identidade_fornecida_fora_do_subject",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_falha_de_persistencia_permanece_erro_do_servidor",
+        "passed": true
+      },
+      {
+        "module": "tests.test_auth_me",
+        "test": "test_me_documenta_o_bearer_e_o_contrato_de_identidade",
+        "passed": true
+      }
+    ]
+  },
+  "critical_tests": {
+    "postgresql_passed": 136,
+    "auth_me_unit_passed": 13,
+    "auth_me_postgresql_passed": 8,
+    "scrum71_passed": 18,
+    "rls_security_passed": 28
+  },
+  "source_file_sha256": {
+    "README.md": "166ddc6eb0ec25b59fc5d9479fcb2ce1e1e4d578146da534e73ed7b197a7a906",
+    "app/api/v1/endpoints/auth.py": "5830a475245f62a1342bf0b0ad478427b0375549bee11d0079718051b352eace",
+    "app/core/config.py": "518eb6c93bf9c4d234c6fc5dfe54905d02196861315c6bfa2ce9cd74a2cc960d",
+    "app/domain/schemas/auth_schema.py": "536f2ffa12f1e0ca650ed655b4143de62cc8f39e46f2088c6a09c78b16218f56",
+    "scripts/isolated_database.py": "a058db1d35ce97dca1f5fa217f490f46286f6b9b72f488150312f9c96d1676ac",
+    "tests/integration/conftest.py": "c0fa7123e0fba5cd671c4592920ee5e03da32a06d0139b69c907abf6990b873b",
+    "tests/integration/test_migration_upgrade.py": "74f48ab187a96dc537a1f831607733c696396b9f55ac18fe0020d007a6afbe07",
+    "tests/test_config_database.py": "a2b45f7e02b9d40b0e1c50e10949216be62916b8b553825d402f4f7ccbf755e8",
+    "tests/test_main.py": "b4457e6e540c5cd5057b6099fe740fbd47c1df15b73516ea17234bc0f1e458e8",
+    "tests/test_storage_reconciliation.py": "e803a2a5100b7b8a58cf2ab634ba5c71b96273145e2e92039abe085ab1ff5999",
+    "tests/test_auth_me.py": "7145e19b5e8bc3139f00685092b09907e820cd44ef55e19a0866b0d2ee640c39",
+    "tests/integration/test_auth_me_api.py": "99603d308803d0757d4c71268513faaf265f54199b28035aa311821747cce4f6"
+  },
+  "prior_driver_changes_preserved": {
+    "app/core/config.py": true,
+    "scripts/isolated_database.py": true,
+    "tests/integration/conftest.py": true,
+    "tests/integration/test_migration_upgrade.py": true,
+    "tests/test_config_database.py": true,
+    "tests/test_storage_reconciliation.py": true
+  },
+  "authentication_dependencies_router_services_rules_migrations_unchanged": true,
+  "quality": {
+    "git_diff_check_exit": 0,
+    "git_diff_cached_check_exit": 0,
+    "conflict_markers": 0,
+    "tracked_secret_findings": 0,
+    "tracked_bytecode_files": 0,
+    "new_env_files": 0,
+    "shared_supabase_access_or_changes": false,
+    "committed": false,
+    "pushed": false,
+    "merged": false,
+    "staged": false
+  },
+  "disposable_container": {
+    "name": "automatize-pr14-postgres17",
+    "final_state": "exited",
+    "data_retained_locally": true
+  },
+  "git_status_final": [
+    " M README.md",
+    " M app/api/v1/endpoints/auth.py",
+    " M app/core/config.py",
+    " M app/domain/schemas/auth_schema.py",
+    " M scripts/isolated_database.py",
+    " M tests/integration/conftest.py",
+    " M tests/integration/test_migration_upgrade.py",
+    " M tests/test_config_database.py",
+    " M tests/test_main.py",
+    " M tests/test_storage_reconciliation.py",
+    "?? docs/audit-backend.patch",
+    "?? docs/consolidation-session.patch",
+    "?? docs/consolidation-vs-HML.patch",
+    "?? docs/evidence/",
+    "?? docs/pr14-auth-me-validation-2026-11-02.json",
+    "?? docs/pr14-auth-me-validation-2026-11-02.md",
+    "?? docs/pr14-validation-2026-11-02.json",
+    "?? docs/pr14-validation-2026-11-02.md",
+    "?? frontend-Automatize-HML/",
+    "?? tests/integration/test_auth_me_api.py",
+    "?? tests/test_auth_me.py"
+  ]
+}

@@ -1,20 +1,17 @@
-﻿from enum import Enum
+"""Compatibilidade: os enums oficiais sao os persistidos em app.domain.models.enums.
 
-class StatusDemandaEnum(str, Enum):
-    PLANEAMENTO = "PLANEAMENTO"
-    EXECUCAO = "EXECUCAO"
-    HOMOLOGACAO = "HOMOLOGACAO"
-    CONCLUIDO = "CONCLUIDO"
+Este modulo existia com valores divergentes (TipoOcorrenciaEnum, PerfilUsuarioEnum);
+agora apenas reexporta os enums do banco para que imports antigos continuem validos.
+"""
+from app.domain.models.enums import PerfilEnum, StatusPedidoEnum, TipoOcorrenciaEnum
 
-# Alias de compatibilidade com pedidos
-StatusPedidoEnum = StatusDemandaEnum
+StatusDemandaEnum = StatusPedidoEnum
+PerfilUsuarioEnum = PerfilEnum
 
-class TipoOcorrenciaEnum(str, Enum):
-    AJUSTE = "AJUSTE"
-    PROBLEMA = "PROBLEMA"
-    DUVIDA = "DUVIDA"
-
-class PerfilUsuarioEnum(str, Enum):
-    ADMIN = "ADMIN"
-    PARCEIRO = "PARCEIRO"
-    CLIENTE = "CLIENTE"
+__all__ = [
+    "PerfilEnum",
+    "PerfilUsuarioEnum",
+    "StatusDemandaEnum",
+    "StatusPedidoEnum",
+    "TipoOcorrenciaEnum",
+]

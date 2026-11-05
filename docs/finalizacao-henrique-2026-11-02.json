@@ -1,0 +1,2718 @@
+{
+  "date": "2026-11-02",
+  "branch": "Henrique-Silva",
+  "base_commit": "7171c31cf8c5aa58de0bf77c14fc0bd974c2258d",
+  "delivery_classification": "Backend aprovado localmente; integração Flutter e implantação/limpeza externas pendentes.",
+  "initial_git": {
+    "commands_run_before_edits": [
+      "git status",
+      "git diff --stat",
+      "git diff --check",
+      "git diff --name-only",
+      "git log -3 --oneline",
+      "git branch --show-current"
+    ],
+    "tracked_modified": [
+      "app/infrastructure/database/data_api_security.py",
+      "docs/security/data_api_hardening.sql",
+      "docs/security/persistence-hardening.md",
+      "scripts/audit_technical_state.py",
+      "tests/integration/test_concurrency_postgres.py",
+      "tests/integration/test_postgres_security.py",
+      "tests/test_data_api_security.py"
+    ],
+    "untracked": [
+      "docs/audit-backend.patch",
+      "docs/consolidation-session.patch",
+      "docs/consolidation-vs-HML.patch",
+      "docs/evidence/",
+      "docs/scrum82-103-validation-2026-11-02.json",
+      "docs/scrum82-103-validation-2026-11-02.md",
+      "frontend-Automatize-HML/",
+      "tests/integration/test_security_runtime_role.py"
+    ],
+    "staged": false,
+    "diff_check_exit": 0,
+    "diff_stat": "7 files changed, 150 insertions(+), 16 deletions(-)",
+    "last_three": [
+      "7171c31 Corrige driver PostgreSQL e integra endpoint auth me",
+      "da7e428 Merge HML e consolida regra de homologacao SCRUM-71",
+      "97bda2f Consolida backend, seguranca, persistencia e regra de homologacao"
+    ]
+  },
+  "recommended_commit_files": [
+    "alembic/versions/d8f4a2c6e901_enforce_attachment_occurrence_order.py",
+    "app/domain/models/anexo.py",
+    "app/domain/models/ocorrencia.py",
+    "app/infrastructure/database/data_api_security.py",
+    "app/infrastructure/storage/reconciliation.py",
+    "docs/hml-validation-runbook.md",
+    "docs/security/data_api_hardening.sql",
+    "docs/security/persistence-hardening.md",
+    "scripts/audit_technical_state.py",
+    "scripts/reconcile_storage.py",
+    "scripts/validate_hml_restore.py",
+    "tests/integration/test_attachment_integrity.py",
+    "tests/integration/test_attachment_migration.py",
+    "tests/integration/test_concurrency_postgres.py",
+    "tests/integration/test_migration_upgrade.py",
+    "tests/integration/test_postgres_security.py",
+    "tests/integration/test_security_runtime_role.py",
+    "tests/test_data_api_security.py",
+    "tests/test_migrations_constraints.py",
+    "tests/test_reconcile_storage_cli.py",
+    "tests/test_restore_validation.py",
+    "docs/finalizacao-henrique-2026-11-02.md",
+    "docs/finalizacao-henrique-2026-11-02.json"
+  ],
+  "source_sha256": {
+    "alembic/versions/d8f4a2c6e901_enforce_attachment_occurrence_order.py": "2e6f0e63c4ecaa50289e4b0b54234c47942f72b9c25e660776a8ee462999fd98",
+    "app/domain/models/anexo.py": "8b30e5e8bbb03d7a7a3d4d89c17d44cf4bc1aec6bd07b05bc5bcf156ff3b84f5",
+    "app/domain/models/ocorrencia.py": "d0e5543d20c098afdc2c788c1cc85cb0117cd12b92fb6903fe407479fbf1a74c",
+    "app/infrastructure/database/data_api_security.py": "7f05e6f641faf213849ac18eb1cba603a5a42b4f0521aedec2017d30bb45fd25",
+    "app/infrastructure/storage/reconciliation.py": "caeabcf9c858cafed5c38f0d819902ee818df346a524627ec78b94f7e77568ba",
+    "docs/hml-validation-runbook.md": "faaacb754aaeef425f1d07062019ea7d897a713551bf723ec145fba3f68abb04",
+    "docs/security/data_api_hardening.sql": "ed50cd2d95d06167089fa4280abf4da1b18a7d5174b492e5cc74c94f07b33b7c",
+    "docs/security/persistence-hardening.md": "c4b2f3c39e5972e07f62529bb6e46328e35b665d6554b91cea8e0a218af889b8",
+    "scripts/audit_technical_state.py": "12afd07e699d369a5b84ed35c921cf76a945ab8ce65c08ecee4dfe85a464771d",
+    "scripts/reconcile_storage.py": "231f595018fee86684c407ce0ae42a3d4941dc696a3c59e910862e3b7deff5a7",
+    "scripts/validate_hml_restore.py": "92328e60597b283df68be2f0626c683c14c53fa2317e30a7c1a3a986a59096e8",
+    "tests/integration/test_attachment_integrity.py": "49b3f16680e9e96d0a5f8ade9b458dbf8e8d399b13952bc45a0da8a17a435896",
+    "tests/integration/test_attachment_migration.py": "ce2329d205f85b7480f77a16f54dd1dfb21786cdeed5ee4e1fbb7d54fcf03926",
+    "tests/integration/test_concurrency_postgres.py": "764a755891f1e07338c1ab8facdcdf5f63999a9fa23589822734ac453b83272b",
+    "tests/integration/test_migration_upgrade.py": "1fc21a7d34aab124cd2627c5d3df39402afe61f472afd786fc3458a74d86c67e",
+    "tests/integration/test_postgres_security.py": "82a7d0d3add88342ad575335e4a7c76e43d57402de2143bd86ae2d9f5a6d40b6",
+    "tests/integration/test_security_runtime_role.py": "e0af2d466af2824f4eb4377a3cd6418a7e0f856e9e9bb4d287983cade2be66e7",
+    "tests/test_data_api_security.py": "3a27d4910604070de2d65d9863dc8c33ec0e5e6919093cc01ba51d7d6dc172ee",
+    "tests/test_migrations_constraints.py": "fe3e149db0d41ff9340d338ac461cf4c74543cf8672b018c05f3071d29f2b6b6",
+    "tests/test_reconcile_storage_cli.py": "8768e156751d14ba93c4757a5eb0dda0d9932ed772fab59b5c3aadc8912649bd",
+    "tests/test_restore_validation.py": "36ebbd605ca3be5721ee4f21a1080c0976f3f445b0186f2804a8896ba0dedc39"
+  },
+  "do_not_version": [
+    ".env",
+    ".env.* except sanitized .env.example",
+    "__pycache__/",
+    "*.pyc",
+    ".pytest_tmp*/",
+    "docs/*.patch",
+    "docs/evidence/",
+    "frontend-Automatize-HML/",
+    "docs/scrum82-103-validation-2026-11-02.md",
+    "docs/scrum82-103-validation-2026-11-02.json"
+  ],
+  "migration": {
+    "new": "d8f4a2c6e901",
+    "parent": "b6e1c8a4d230",
+    "old_revisions_modified": false,
+    "data_deleted_or_repaired": false,
+    "legacy_inconsistency_aborts": true,
+    "pair_fk_deferrable": true,
+    "pair_fk_initially": "DEFERRED",
+    "old_delete_actions_preserved": true,
+    "automatic_downgrade_refused": true
+  },
+  "alembic": {
+    "empty_upgrade_exit": 0,
+    "heads": [
+      "d8f4a2c6e901"
+    ],
+    "current": "d8f4a2c6e901",
+    "check": "No new upgrade operations detected.",
+    "restored_check": true,
+    "history": "b6e1c8a4d230 -> d8f4a2c6e901 (head), Enforce the attachment/occurrence order relationship without changing deletes.\r\n9d4f2a6c8e11 -> b6e1c8a4d230, Protect audit payloads while preserving existing FK SET NULL semantics.\r\n7b2d4e6f8a10 -> 9d4f2a6c8e11, Fix trigger search paths and close direct domain Data API grants.\r\n3c9e7a1b5d20 -> 7b2d4e6f8a10, habilita RLS em todas as tabelas\r\nfd3fe1dcfeab -> 3c9e7a1b5d20, etapas operacionais e imutabilidade do aceite formal\r\na4fa37701385 -> fd3fe1dcfeab, create historico status pedidos\r\nfbfba8e84540 -> a4fa37701385, check_models_sync\r\n<base> -> fbfba8e84540, initial_schema"
+  },
+  "environment": {
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "postgresql": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "shared_postgresql": "17.6",
+    "packages": {
+      "SQLAlchemy": "2.1.6",
+      "alembic": "1.20.1",
+      "psycopg2-binary": "2.9.13",
+      "pytest": "9.2.0",
+      "fastapi": "0.162.0",
+      "supabase": "2.33.0",
+      "storage3": "2.33.0"
+    },
+    "pip_check": "No broken requirements found.",
+    "flutter": "3.47.2",
+    "dart": "3.13.2"
+  },
+  "backend_full_suite": {
+    "passed": 701,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 1,
+    "seconds": 171.799,
+    "modules": {
+      "tests.integration.test_attachment_integrity": {
+        "passed": 8
+      },
+      "tests.integration.test_attachment_migration": {
+        "passed": 2
+      },
+      "tests.integration.test_attachment_storage_transactions": {
+        "passed": 4
+      },
+      "tests.integration.test_auth_me_api": {
+        "passed": 8
+      },
+      "tests.integration.test_concurrency_postgres": {
+        "passed": 6
+      },
+      "tests.integration.test_demand_service_db": {
+        "passed": 47
+      },
+      "tests.integration.test_demandas_acoes_api": {
+        "passed": 10
+      },
+      "tests.integration.test_hml_dataset": {
+        "passed": 2
+      },
+      "tests.integration.test_legacy_update_authorization": {
+        "passed": 8
+      },
+      "tests.integration.test_migration_upgrade": {
+        "passed": 2
+      },
+      "tests.integration.test_postgres_security": {
+        "passed": 34
+      },
+      "tests.integration.test_scrum71_homologacao": {
+        "passed": 18
+      },
+      "tests.integration.test_security_runtime_role": {
+        "passed": 16
+      },
+      "tests.integration.test_user_queries_api": {
+        "passed": 3
+      },
+      "tests.repositories.test_base_repository": {
+        "passed": 8
+      },
+      "tests.repositories.test_demo_environment_seed": {
+        "passed": 14
+      },
+      "tests.repositories.test_historico_status_pedido_repository": {
+        "passed": 3
+      },
+      "tests.repositories.test_pedido_repository": {
+        "passed": 7
+      },
+      "tests.repositories.test_persistence_security": {
+        "passed": 41
+      },
+      "tests.services.test_anexo_service": {
+        "passed": 47
+      },
+      "tests.services.test_aprovacao_service": {
+        "passed": 19
+      },
+      "tests.services.test_pedido_service": {
+        "passed": 24
+      },
+      "tests.test_attachment_validation": {
+        "passed": 53
+      },
+      "tests.test_auth_login": {
+        "passed": 26
+      },
+      "tests.test_auth_me": {
+        "passed": 13
+      },
+      "tests.test_config_database": {
+        "passed": 29
+      },
+      "tests.test_data_api_security": {
+        "passed": 59
+      },
+      "tests.test_demandas_auth": {
+        "passed": 16
+      },
+      "tests.test_demo_user_seed": {
+        "passed": 10
+      },
+      "tests.test_main": {
+        "passed": 9
+      },
+      "tests.test_migrations_constraints": {
+        "passed": 2
+      },
+      "tests.test_postgres_tls": {
+        "passed": 44
+      },
+      "tests.test_reconcile_storage_cli": {
+        "passed": 5
+      },
+      "tests.test_regras_ciclo_vida": {
+        "passed": 36
+      },
+      "tests.test_restore_validation": {
+        "passed": 2
+      },
+      "tests.test_storage": {
+        "passed": 23
+      },
+      "tests.test_storage_reconciliation": {
+        "passed": 11
+      },
+      "tests.test_validacao_arquivos": {
+        "passed": 32
+      }
+    },
+    "skips": []
+  },
+  "focused_suite": {
+    "passed": 50,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "seconds": 18.255,
+    "modules": {
+      "tests.integration.test_attachment_integrity": {
+        "passed": 8
+      },
+      "tests.integration.test_attachment_migration": {
+        "passed": 2
+      },
+      "tests.integration.test_attachment_storage_transactions": {
+        "passed": 4
+      },
+      "tests.integration.test_migration_upgrade": {
+        "passed": 2
+      },
+      "tests.integration.test_security_runtime_role": {
+        "passed": 16
+      },
+      "tests.test_reconcile_storage_cli": {
+        "passed": 5
+      },
+      "tests.test_storage_reconciliation": {
+        "passed": 11
+      },
+      "tests.test_restore_validation": {
+        "passed": 2
+      }
+    },
+    "skips": []
+  },
+  "postgresql_passed": 168,
+  "scrum71_passed": 18,
+  "rls_security_passed": 34,
+  "runtime_catalog_passed": 16,
+  "shared_readonly_catalog": {
+    "readonly": true,
+    "server": "17.6",
+    "revision": [
+      "3c9e7a1b5d20"
+    ],
+    "backend_role": {
+      "rolsuper": false,
+      "rolbypassrls": true,
+      "rolcreaterole": true,
+      "rolcreatedb": true
+    },
+    "access": [
+      {
+        "table_name": "aceites_formais",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "anon",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "authenticated",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "backend",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "service_role",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "anon",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "authenticated",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "backend",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "service_role",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "anon",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "authenticated",
+        "rls": false,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "backend",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "service_role",
+        "rls": false,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "users",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "users",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "users",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "users",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      }
+    ],
+    "findings": [
+      {
+        "table": "users",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "users",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "pedidos",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "pedidos",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "ocorrencias",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "ocorrencias",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "anexos",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "anexos",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "aceites_formais",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "aceites_formais",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "auditoria_logs",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "auditoria_logs",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "historico_status_pedidos",
+        "issue": "rls_disabled",
+        "role": null
+      },
+      {
+        "table": "historico_status_pedidos",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "historico_status_pedidos",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "etapas_operacionais",
+        "issue": "rls_disabled",
+        "role": null
+      },
+      {
+        "table": "etapas_operacionais",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "etapas_operacionais",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      },
+      {
+        "table": "alembic_version",
+        "issue": "rls_disabled",
+        "role": null
+      },
+      {
+        "table": "alembic_version",
+        "issue": "direct_client_privileges",
+        "role": "anon"
+      },
+      {
+        "table": "alembic_version",
+        "issue": "direct_client_privileges",
+        "role": "authenticated"
+      }
+    ],
+    "functions": [
+      {
+        "proname": "bloquear_alteracao_aceite_formal",
+        "prosecdef": false,
+        "proconfig": null,
+        "owned_by_backend": true,
+        "anon_execute": true,
+        "authenticated_execute": true
+      },
+      {
+        "proname": "proteger_conclusao_pedido",
+        "prosecdef": false,
+        "proconfig": null,
+        "owned_by_backend": true,
+        "anon_execute": true,
+        "authenticated_execute": true
+      }
+    ],
+    "triggers": [
+      {
+        "table_name": "aceites_formais",
+        "tgname": "trg_aceites_formais_imutavel",
+        "tgenabled": "O",
+        "proname": "bloquear_alteracao_aceite_formal"
+      },
+      {
+        "table_name": "pedidos",
+        "tgname": "trg_pedidos_protege_conclusao",
+        "tgenabled": "O",
+        "proname": "proteger_conclusao_pedido"
+      }
+    ],
+    "public_grants": [],
+    "public_column_grants": [],
+    "role_boundaries": [
+      {
+        "role_name": "anon",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      },
+      {
+        "role_name": "authenticated",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      },
+      {
+        "role_name": "backend",
+        "rolsuper": false,
+        "rolbypassrls": true,
+        "rolcreaterole": true,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolinherit": true,
+        "public_schema_create": true,
+        "database_create": true,
+        "member_of_backend": true
+      },
+      {
+        "role_name": "service_role",
+        "rolsuper": false,
+        "rolbypassrls": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      }
+    ],
+    "public_schema_create_granted": false,
+    "default_grants": [
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "anon",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "f",
+        "grantee": "anon",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "authenticated",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "f",
+        "grantee": "authenticated",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "service_role",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "f",
+        "grantee": "service_role",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "public",
+        "creator_is_backend": false,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "anon",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "authenticated",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "S",
+        "grantee": "service_role",
+        "privilege_type": "USAGE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "anon",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "authenticated",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "f",
+        "grantee": "service_role",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "anon",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "authenticated",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "DELETE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "INSERT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "SELECT"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "schema_name": "storage",
+        "creator_is_backend": true,
+        "object_type": "r",
+        "grantee": "service_role",
+        "privilege_type": "UPDATE"
+      }
+    ],
+    "policies": [],
+    "storage_available": true,
+    "bucket": [
+      {
+        "public": false,
+        "file_size_limit": null,
+        "allowed_mime_types": null
+      }
+    ],
+    "storage_rls": [
+      {
+        "relname": "buckets",
+        "relrowsecurity": true,
+        "relforcerowsecurity": false
+      },
+      {
+        "relname": "objects",
+        "relrowsecurity": true,
+        "relforcerowsecurity": false
+      }
+    ],
+    "storage_grants": [
+      {
+        "table_name": "buckets",
+        "role_name": "anon",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": false
+      },
+      {
+        "table_name": "buckets",
+        "role_name": "authenticated",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": false
+      },
+      {
+        "table_name": "buckets",
+        "role_name": "backend",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true
+      },
+      {
+        "table_name": "buckets",
+        "role_name": "service_role",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true
+      },
+      {
+        "table_name": "objects",
+        "role_name": "anon",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": false
+      },
+      {
+        "table_name": "objects",
+        "role_name": "authenticated",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": false
+      },
+      {
+        "table_name": "objects",
+        "role_name": "backend",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true
+      },
+      {
+        "table_name": "objects",
+        "role_name": "service_role",
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true
+      }
+    ],
+    "integrity_counts": {
+      "attachment_occurrence_mismatches": 0,
+      "completed_without_acceptance": 0,
+      "duplicate_acceptances": 0
+    },
+    "storage_sdk": {
+      "reachable": true,
+      "bucket_private": true
+    }
+  },
+  "disposable_catalog": {
+    "readonly": true,
+    "server": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "revision": [
+      "d8f4a2c6e901"
+    ],
+    "backend_role": {
+      "rolsuper": true,
+      "rolbypassrls": true,
+      "rolcreaterole": true,
+      "rolcreatedb": true
+    },
+    "access": [
+      {
+        "table_name": "aceites_formais",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "aceites_formais",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "alembic_version",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "anexos",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "auditoria_logs",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "etapas_operacionais",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "historico_status_pedidos",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "ocorrencias",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "pedidos",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "users",
+        "role_name": "anon",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "users",
+        "role_name": "authenticated",
+        "rls": true,
+        "backend_bypasses_rls": false,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      },
+      {
+        "table_name": "users",
+        "role_name": "backend",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": true,
+        "insert": true,
+        "update": true,
+        "delete": true,
+        "truncate": true,
+        "references": true,
+        "trigger": true,
+        "maintain": true
+      },
+      {
+        "table_name": "users",
+        "role_name": "service_role",
+        "rls": true,
+        "backend_bypasses_rls": true,
+        "select": false,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false,
+        "references": false,
+        "trigger": false,
+        "maintain": false
+      }
+    ],
+    "findings": [],
+    "functions": [
+      {
+        "proname": "bloquear_alteracao_aceite_formal",
+        "prosecdef": false,
+        "proconfig": [
+          "search_path=pg_catalog, pg_temp"
+        ],
+        "owned_by_backend": true,
+        "anon_execute": false,
+        "authenticated_execute": false
+      },
+      {
+        "proname": "proteger_conclusao_pedido",
+        "prosecdef": false,
+        "proconfig": [
+          "search_path=pg_catalog, pg_temp"
+        ],
+        "owned_by_backend": true,
+        "anon_execute": false,
+        "authenticated_execute": false
+      },
+      {
+        "proname": "proteger_auditoria_log",
+        "prosecdef": false,
+        "proconfig": [
+          "search_path=pg_catalog, pg_temp"
+        ],
+        "owned_by_backend": true,
+        "anon_execute": false,
+        "authenticated_execute": false
+      }
+    ],
+    "triggers": [
+      {
+        "table_name": "aceites_formais",
+        "tgname": "trg_aceites_formais_imutavel",
+        "tgenabled": "O",
+        "proname": "bloquear_alteracao_aceite_formal"
+      },
+      {
+        "table_name": "auditoria_logs",
+        "tgname": "trg_auditoria_logs_imutavel",
+        "tgenabled": "O",
+        "proname": "proteger_auditoria_log"
+      },
+      {
+        "table_name": "pedidos",
+        "tgname": "trg_pedidos_protege_conclusao",
+        "tgenabled": "O",
+        "proname": "proteger_conclusao_pedido"
+      }
+    ],
+    "public_grants": [],
+    "public_column_grants": [],
+    "role_boundaries": [
+      {
+        "role_name": "anon",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      },
+      {
+        "role_name": "authenticated",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      },
+      {
+        "role_name": "backend",
+        "rolsuper": true,
+        "rolbypassrls": true,
+        "rolcreaterole": true,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolinherit": true,
+        "public_schema_create": true,
+        "database_create": true,
+        "member_of_backend": true
+      },
+      {
+        "role_name": "service_role",
+        "rolsuper": false,
+        "rolbypassrls": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolinherit": true,
+        "public_schema_create": false,
+        "database_create": false,
+        "member_of_backend": false
+      }
+    ],
+    "public_schema_create_granted": false,
+    "default_grants": [],
+    "policies": [],
+    "storage_available": false,
+    "bucket": [],
+    "storage_rls": [],
+    "storage_grants": [],
+    "integrity_counts": {
+      "attachment_occurrence_mismatches": 0,
+      "completed_without_acceptance": 0,
+      "duplicate_acceptances": 0
+    }
+  },
+  "orphan_inventory": {
+    "dry_run": true,
+    "complete_snapshot": true,
+    "apply_supported": false,
+    "counts": {
+      "database_references": 0,
+      "storage_objects": 0,
+      "objects_without_record": 0,
+      "references_without_object": 0,
+      "orphan_candidates_requiring_review": 0
+    },
+    "inventory_sha256": "c0fd075aa3143c1402901a721c85a62ab008da404bac4af760f68df326721e3c",
+    "shared_objects_deleted": 0,
+    "raw_receipt_not_for_commit": true,
+    "apply_blocker": "SDK remove accepts paths without a conditional object generation/version; no coordinated quiescence protocol has been established."
+  },
+  "restore": {
+    "restored": true,
+    "rows_and_fingerprints_equal": true,
+    "security_equal": true,
+    "triggers": 3,
+    "revision": "d8f4a2c6e901",
+    "target": "restore_e429b7e4ccb745a09e38f73dfd4ff6b3_test",
+    "seed_dry_run_rolled_back": true,
+    "seed_idempotent": true,
+    "local_only": true
+  },
+  "frontend": {
+    "canonical": false,
+    "original_dart_files_unchanged": true,
+    "source_files_hashed": 43,
+    "executed_only_in_temporary_copy": true,
+    "pub_get_offline_exit": 0,
+    "commands_exit": {
+      "analyze": 1,
+      "build": 1,
+      "test": 1
+    },
+    "analyze_issues": 21,
+    "full_test_passed": 9,
+    "test_files_failed_to_load": 5,
+    "isolated_polling_and_model_tests_passed": 4,
+    "identity_provider_and_auth_me_consumer_found": false,
+    "profile_navigation": "always /home after login",
+    "decimal_progress_parses": true,
+    "nullable_progress_parses": false,
+    "pagination_over_100_implemented_in_source": true,
+    "pagination_runtime_validation_blocked_by_compile": true,
+    "root_error": "lib/app/routes/app_routes.dart:1 contains import y'package:flutter/material.dart';",
+    "build_web_release_passed": false
+  },
+  "tickets": [
+    {
+      "ticket": "SCRUM-21",
+      "implemented": "Sim",
+      "tested": "Schema novo, driver/TLS e Alembic reais",
+      "integrated": "Sim, branch",
+      "applied": "Schema inicial existe no Supabase; evolução pendente",
+      "status": "CONCLUÍDO",
+      "pending": "Nenhuma no aceite de configuração inicial; hardening em 82/103."
+    },
+    {
+      "ticket": "SCRUM-39",
+      "implemented": "Sim, na cópia Flutter",
+      "tested": "Polling isolado passa; analyze/test/build da cópia falham",
+      "integrated": "Apenas cópia não canônica",
+      "applied": "Não comprovado",
+      "status": "BLOQUEADO",
+      "pending": "Repositório canônico, correção do import e validação completa do aplicativo."
+    },
+    {
+      "ticket": "SCRUM-82",
+      "implemented": "Sim",
+      "tested": "Imutabilidade, integridade, rollback e shadowing reais",
+      "integrated": "Sim, código e working tree",
+      "applied": "Não no Supabase",
+      "status": "PARCIAL",
+      "pending": "Implantação autorizada das migrations e verificação pós-deploy."
+    },
+    {
+      "ticket": "SCRUM-87",
+      "implemented": "Integridade e inventário sim; limpeza destrutiva não",
+      "tested": "FK composta, preflight, compensação e recibos",
+      "integrated": "Working tree",
+      "applied": "Somente local; inventário real READ ONLY",
+      "status": "PARCIAL",
+      "pending": "Deploy da FK e protocolo autorizado de limpeza com coordenação/versionamento."
+    },
+    {
+      "ticket": "SCRUM-101",
+      "implemented": "Sim",
+      "tested": "Persistência e operações de etapas no PostgreSQL",
+      "integrated": "Sim, branch",
+      "applied": "Tabela existe no Supabase; runtime não certificado",
+      "status": "CONCLUÍDO",
+      "pending": "Nenhuma no escopo técnico de repository; hardening em SCRUM-103."
+    },
+    {
+      "ticket": "SCRUM-102",
+      "implemented": "Sim",
+      "tested": "Consultas e autorização administrativas reais",
+      "integrated": "Sim, branch",
+      "applied": "Comprovado localmente; deploy da API não auditado",
+      "status": "CONCLUÍDO",
+      "pending": "Nenhuma no aceite técnico do backend; publicação não executada."
+    },
+    {
+      "ticket": "SCRUM-103",
+      "implemented": "Domínio sim; defaults/runtime dependem de desenho operacional",
+      "tested": "RLS, oito privilégios, EXECUTE e runtime restrito",
+      "integrated": "Sim, migrations e working tree",
+      "applied": "Não no Supabase",
+      "status": "PARCIAL",
+      "pending": "Deploy, credencial runtime/migrator e defaults por creator/schema."
+    },
+    {
+      "ticket": "SCRUM-104",
+      "implemented": "Sim",
+      "tested": "Seis cenários de concorrência reais e isolamento dos timeouts",
+      "integrated": "Sim, branch/working tree",
+      "applied": "Validado em cluster descartável",
+      "status": "CONCLUÍDO",
+      "pending": "Nenhuma no ensaio técnico de concorrência; carga real não certificada."
+    },
+    {
+      "ticket": "SCRUM-105",
+      "implemented": "Sim",
+      "tested": "Seed dry-run/idempotente, dump/restore real com ACLs e check",
+      "integrated": "Sim, branch/working tree",
+      "applied": "Somente descartável, por desenho",
+      "status": "CONCLUÍDO",
+      "pending": "Nenhuma no escopo de massa/restore PostgreSQL isolado; não é DR de Supabase/Auth/Storage."
+    }
+  ],
+  "risks": [
+    "Shared migrations remain unapplied; current alerts persist.",
+    "Runtime owner/BYPASSRLS/CREATEROLE/CREATEDB and provider defaults require credential/architecture decisions.",
+    "New FK locks/validates existing tables and must be reviewed before authorized deployment.",
+    "Deferred pair FK is checked at COMMIT or SET CONSTRAINTS IMMEDIATE; old SET NULL/CASCADE behavior is retained.",
+    "No destructive orphan cleanup implementation; current snapshot contains no objects/references.",
+    "Noncanonical Flutter copy fails compilation and lacks identity routing/null-progress compatibility.",
+    "Local PostgreSQL restore is not a production restore of Supabase Storage/Auth."
+  ],
+  "suggested_commit": "Consolida segurança e reforça integridade de anexos com validação final",
+  "quality": {
+    "diff_check_exit": 0,
+    "cached_diff_check_exit": 0,
+    "conflict_markers": 0,
+    "tracked_secret_findings": 0,
+    "tracked_env_or_bytecode": 0,
+    "staged": false,
+    "committed": false,
+    "pushed": false,
+    "merged": false,
+    "rebased": false,
+    "shared_database_writes": false,
+    "real_storage_writes_or_deletes": false
+  },
+  "git_status_final": [
+    " M app/domain/models/anexo.py",
+    " M app/domain/models/ocorrencia.py",
+    " M app/infrastructure/database/data_api_security.py",
+    " M app/infrastructure/storage/reconciliation.py",
+    " M docs/hml-validation-runbook.md",
+    " M docs/security/data_api_hardening.sql",
+    " M docs/security/persistence-hardening.md",
+    " M scripts/audit_technical_state.py",
+    " M scripts/reconcile_storage.py",
+    " M scripts/validate_hml_restore.py",
+    " M tests/integration/test_concurrency_postgres.py",
+    " M tests/integration/test_migration_upgrade.py",
+    " M tests/integration/test_postgres_security.py",
+    " M tests/test_data_api_security.py",
+    " M tests/test_migrations_constraints.py",
+    "?? alembic/versions/d8f4a2c6e901_enforce_attachment_occurrence_order.py",
+    "?? docs/audit-backend.patch",
+    "?? docs/consolidation-session.patch",
+    "?? docs/consolidation-vs-HML.patch",
+    "?? docs/evidence/",
+    "?? docs/finalizacao-henrique-2026-11-02.json",
+    "?? docs/finalizacao-henrique-2026-11-02.md",
+    "?? docs/scrum82-103-validation-2026-11-02.json",
+    "?? docs/scrum82-103-validation-2026-11-02.md",
+    "?? frontend-Automatize-HML/",
+    "?? tests/integration/test_attachment_integrity.py",
+    "?? tests/integration/test_attachment_migration.py",
+    "?? tests/integration/test_security_runtime_role.py",
+    "?? tests/test_reconcile_storage_cli.py",
+    "?? tests/test_restore_validation.py"
+  ],
+  "final_db_check": {
+    "pair_fk": {
+      "condeferrable": true,
+      "condeferred": true,
+      "convalidated": true
+    },
+    "remaining_test_runtime_roles": 0
+  },
+  "disposable_container": {
+    "name": "automatize-final-20261102",
+    "state": "exited",
+    "synthetic_data_retained_locally": true,
+    "other_containers_changed": false
+  }
+}
