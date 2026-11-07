@@ -11,7 +11,7 @@ from sqlalchemy.engine import Connection
 
 DOMAIN_TABLES = (
     "users", "pedidos", "ocorrencias", "anexos", "aceites_formais",
-    "auditoria_logs", "historico_status_pedidos", "etapas_operacionais",
+    "auditoria_logs", "historico_status_pedidos", "etapas_operacionais", "chat_mensagens",
 )
 # The existing HML migration 7b2d4e6f8a10 also protects Alembic's metadata.
 PROTECTED_TABLES = (*DOMAIN_TABLES, "alembic_version")
