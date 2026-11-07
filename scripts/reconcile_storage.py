@@ -8,13 +8,33 @@ from sqlalchemy import text
 
 from app.core.config import Settings
 from app.core.database import create_database_engine
+from app.infrastructure.database.data_api_security import require_complete_visibility
 from app.infrastructure.storage.reconciliation import ObjectEvidence, reconcile_inventory
+
+
+def require_complete_inventory_access(connection, bucket):
+    """Neither RLS-filtered metadata nor a missing bucket is a complete snapshot."""
+    require_complete_visibility(connection, ("anexos", "pedidos"))
+    rows = connection.execute(text("""
+        SELECT c.relname,pg_catalog.has_table_privilege(current_user,c.oid,'SELECT')
+            AND NOT pg_catalog.row_security_active(c.oid) AS complete
+        FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='storage' AND c.relname IN ('objects','buckets') AND c.relkind='r'
+    """)).mappings().all()
+    if {r["relname"] for r in rows} != {"objects", "buckets"} or not all(r["complete"] for r in rows):
+        raise ValueError("Complete Storage catalog visibility required")
+    private = connection.execute(text(
+        "SELECT NOT public FROM storage.buckets WHERE id=:bucket"
+    ), {"bucket": bucket}).scalar_one_or_none()
+    if private is not True:
+        raise ValueError("Existing private application bucket required")
 
 
 def inventory(connection, bucket):
     connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
     if connection.exec_driver_sql("SHOW transaction_read_only").scalar_one() != "on":
         raise RuntimeError("Read-only snapshot required")
+    require_complete_inventory_access(connection, bucket)
     # SQL metadata inventory avoids SDK pagination gaps and never downloads files.
     refs = set(connection.exec_driver_sql("SELECT caminho_storage FROM public.anexos").scalars())
     orders = set(connection.exec_driver_sql("SELECT id FROM public.pedidos").scalars())
