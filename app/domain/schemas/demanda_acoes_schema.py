@@ -40,6 +40,11 @@ class DemandaUpdateRequest(_Requisicao):
     descricao: str
 
 
+class MovimentoQuadroRequest(_Requisicao):
+    origem: StatusPedidoEnum
+    destino: StatusPedidoEnum
+
+
 class StatusUpdateRequest(_Requisicao):
     status: StatusPedidoEnum
 

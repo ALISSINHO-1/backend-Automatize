@@ -1,9 +1,13 @@
 """Rotas de escrita com JWT real e PostgreSQL real (Storage simulado)."""
+import base64
+import json
 from uuid import uuid4
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
-from sqlalchemy import select # type: ignore
+from pydantic import SecretStr
+from sqlalchemy import select
 
 from app.api.v1.endpoints.demandas_acoes import get_demand_service
 from app.core.config import Settings
@@ -11,6 +15,7 @@ from app.core.database import get_db
 from app.core.security import create_access_token
 from app.domain.models import AceiteFormal, AuditoriaLog
 from app.domain.models.enums import PerfilEnum
+from app.domain.models.movimento_quadro import MovimentoQuadro
 from app.main import create_app
 from app.services.anexo_service import AnexoService
 from app.services.demand_service import DemandService
@@ -218,3 +223,35 @@ def test_datas_da_demanda_refletem_previsao_execucao_e_aceite(client, auth, dema
     assert concluida["data_inicio"] == em_homologacao["data_inicio"]
     assert concluida["data_conclusao"] is not None
     assert client.patch(f"{url}/previsao", headers=cliente, json=previsao).status_code == 409
+
+
+
+def test_movimento_no_quadro_registra_cifra_e_respeita_ciclo(client, db, auth, demanda_id, settings, atores):
+    demanda = f"/demandas/{demanda_id}"
+    url = f"{demanda}/quadro/movimentos"
+    tecnico = auth["tecnico"]
+    corpo = {"origem": "PLANEAMENTO", "destino": "EXECUCAO"}
+    assert client.post(url, headers=auth["admin"], json=corpo).status_code == 403
+    assert client.post(url, headers=tecnico, json=corpo).status_code == 503
+    assert client.get(demanda, headers=tecnico).json()["status"] == "PLANEAMENTO"
+    assert db.scalar(select(MovimentoQuadro)) is None
+
+    chave = AESGCM.generate_key(bit_length=256)
+    settings.QUADRO_AUDIT_KEY = SecretStr(base64.urlsafe_b64encode(chave).decode())
+    assert client.post(url, headers=tecnico, json=corpo).status_code == 200
+    assert client.post(url, headers=tecnico, json=corpo).status_code == 409
+    assert client.post(
+        url, headers=tecnico, json={"origem": "EXECUCAO", "destino": "CONCLUIDO"}
+    ).status_code == 409
+    assert client.post(
+        url, headers=tecnico, json={"origem": "EXECUCAO", "destino": "HOMOLOGACAO"}
+    ).status_code == 409
+    movimento = db.execute(select(MovimentoQuadro)).scalar_one()
+    nonce, cifra = movimento.conteudo_cifrado[:12], movimento.conteudo_cifrado[12:]
+    assert demanda_id.encode() not in cifra
+    dados = json.loads(AESGCM(chave).decrypt(nonce, cifra, movimento.id.bytes))
+    assert dados["demanda_id"] == demanda_id
+    assert dados["tecnico_id"] == str(atores["tecnico"].id)
+    assert dados["origem"] == "PLANEAMENTO"
+    assert dados["destino"] == "EXECUCAO"
+    assert dados["ocorrido_em"]

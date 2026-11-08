@@ -26,9 +26,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     output = StringIO()
     config = alembic_config(output_buffer=output)
     revisions = ScriptDirectory.from_config(config)
-    assert revisions.get_heads() == ["51cb39a0d826"]
+    assert revisions.get_heads() == ["84db17ce9f26"]
     assert [item.revision for item in revisions.walk_revisions()] == [
-        "51cb39a0d826", "2a6d14c839ef", "f9a2d4c6b803", "e3b7c1d9f402", "d8f4a2c6e901", "b6e1c8a4d230", "9d4f2a6c8e11", "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
+        "84db17ce9f26", "51cb39a0d826", "2a6d14c839ef", "f9a2d4c6b803", "e3b7c1d9f402", "d8f4a2c6e901", "b6e1c8a4d230", "9d4f2a6c8e11", "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
     ]
     command.upgrade(config, "head", sql=True)
     sql = output.getvalue()

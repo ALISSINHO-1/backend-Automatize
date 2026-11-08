@@ -7,6 +7,7 @@ from app.domain.models.auditoria_log import AuditoriaLog
 from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 from app.domain.models.etapa_operacional import EtapaOperacional
 from app.domain.models.chat_mensagem import ChatMensagem
+from app.domain.models.movimento_quadro import MovimentoQuadro
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "HistoricoStatusPedido",
     "EtapaOperacional",
     "ChatMensagem",
+    "MovimentoQuadro",
 ]
