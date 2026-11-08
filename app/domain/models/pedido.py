@@ -19,7 +19,6 @@ from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, column_property, mapped_column # type: ignore
 
 from app.core.database import Base
-from app.domain.models.aceite_formal import AceiteFormal
 from app.domain.models.enums import StatusPedidoEnum
 from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 
@@ -86,9 +85,13 @@ class Pedido(Base):
         .scalar_subquery()
     )
     data_conclusao: Mapped[datetime | None] = column_property(
-        select(AceiteFormal.data_hora_aceite)
-        .where(AceiteFormal.pedido_id == id, status == StatusPedidoEnum.CONCLUIDO)
-        .correlate_except(AceiteFormal)
+        select(func.max(HistoricoStatusPedido.created_at))
+        .where(
+            HistoricoStatusPedido.pedido_id == id,
+            HistoricoStatusPedido.status_novo == StatusPedidoEnum.CONCLUIDO,
+            status == StatusPedidoEnum.CONCLUIDO,
+        )
+        .correlate_except(HistoricoStatusPedido)
         .scalar_subquery()
     )
 
