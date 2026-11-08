@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -28,6 +28,10 @@ class DemandaResponse(BaseModel):
     )
     created_at: datetime | None = Field(description="Data de criação ou null.")
     updated_at: datetime | None = Field(description="Data da última atualização ou null.")
+
+    data_inicio: datetime | None = None
+    data_previsao: date | None = None
+    data_conclusao: datetime | None = None
 
     @field_validator("percentual_progresso", mode="before")
     @classmethod

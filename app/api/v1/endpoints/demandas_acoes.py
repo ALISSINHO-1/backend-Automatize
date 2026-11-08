@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.exceptions import (
     AcessoNegadoException,
     AprovacaoNaoAutorizadaException,
+    AuditoriaQuadroIndisponivelException,
     OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
@@ -29,11 +30,13 @@ from app.domain.schemas.aprovacao_schema import AprovacaoRespostaSchema, Aprovac
 from app.domain.schemas.demanda_acoes_schema import (
     AuditoriaResponse,
     DemandaCreateRequest,
+    DemandaPrevisaoRequest,
     DemandaDisponivelResponse,
     DemandaUpdateRequest,
     EtapaCreateRequest,
     EtapaResponse,
     EtapaUpdateRequest,
+    MovimentoQuadroRequest,
     OcorrenciaCreateRequest,
     OcorrenciaResponse,
     RejeicaoRequest,
@@ -59,6 +62,7 @@ router = APIRouter(prefix="/demandas", tags=["Demandas - Acoes"], responses={
 _STATUS_POR_EXCECAO: tuple[tuple[type[RegraNegocioException], int], ...] = (
     (RecursoNaoEncontradoException, status.HTTP_404_NOT_FOUND),
     (AcessoNegadoException, status.HTTP_403_FORBIDDEN),
+    (AuditoriaQuadroIndisponivelException, status.HTTP_503_SERVICE_UNAVAILABLE),
     (AprovacaoNaoAutorizadaException, status.HTTP_403_FORBIDDEN),
     (RegistroImutavelException, status.HTTP_409_CONFLICT),
     (OperacaoConflitanteException, status.HTTP_409_CONFLICT),
@@ -94,7 +98,7 @@ def criar_demanda(
 ) -> DemandaResponse:
     with _regras_como_http():
         pedido = service.criar(usuario, titulo=dados.titulo, descricao=dados.descricao,
-                               cliente_id=dados.cliente_id)
+                               cliente_id=dados.cliente_id, data_previsao=dados.data_previsao)
     return DemandaResponse.model_validate(pedido)
 
 
@@ -108,6 +112,19 @@ def editar_demanda(
     with _regras_como_http():
         pedido = service.editar(usuario, id, titulo=dados.titulo, descricao=dados.descricao)
     return DemandaResponse.model_validate(pedido)
+
+
+@router.patch("/{id}/previsao", status_code=status.HTTP_204_NO_CONTENT,
+              summary="Atualiza ou remove a data prevista de uma demanda")
+def atualizar_previsao(
+    id: UUID,
+    dados: DemandaPrevisaoRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> Response:
+    with _regras_como_http():
+        service.atualizar_previsao(usuario, id, dados.data_previsao)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT, summary="Exclui uma demanda nao concluida")
@@ -131,6 +148,24 @@ def alterar_status(
 ) -> DemandaResponse:
     with _regras_como_http():
         pedido = service.alterar_status(usuario, id, dados.status)
+    return DemandaResponse.model_validate(pedido)
+
+
+@router.post("/{id}/quadro/movimentos", response_model=DemandaResponse,
+             summary="Move uma demanda atribuída à próxima coluna operacional")
+def mover_no_quadro(
+    id: UUID,
+    dados: MovimentoQuadroRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+    configuracao: Settings = Depends(get_application_settings),
+) -> DemandaResponse:
+    chave = configuracao.QUADRO_AUDIT_KEY
+    with _regras_como_http():
+        pedido = service.alterar_status(
+            usuario, id, dados.destino,
+            quadro=(dados.origem, chave.get_secret_value() if chave is not None else None),
+        )
     return DemandaResponse.model_validate(pedido)
 
 

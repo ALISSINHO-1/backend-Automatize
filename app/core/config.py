@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_KEY: str | None = Field(default=None, repr=False)
     cors_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ORIGINS")
+    QUADRO_AUDIT_KEY: SecretStr | None = Field(default=None, repr=False)
     JWT_SECRET_KEY: str | None = Field(default=None, repr=False)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)

@@ -82,7 +82,7 @@ def test_catalog_audit_is_readonly_and_reports_storage_absence_explicitly(engine
         report = inspect_catalog(connection, "synthetic-unconfigured-bucket")
         assert connection.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "on"
     assert report["readonly"] is True
-    assert report["revision"] == ["2a6d14c839ef"]
+    assert report["revision"] == ["84db17ce9f26"]
     assert report["findings"] == []
     assert report["public_grants"] == []
     assert report["public_column_grants"] == []

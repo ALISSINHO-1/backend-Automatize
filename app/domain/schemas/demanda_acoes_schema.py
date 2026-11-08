@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +22,7 @@ class DemandaDisponivelResponse(BaseModel):
 
 
 class DemandaCreateRequest(_Requisicao):
+    data_previsao: date | None = None
     titulo: str = Field(max_length=255)
     descricao: str
     cliente_id: UUID | None = Field(
@@ -30,9 +31,18 @@ class DemandaCreateRequest(_Requisicao):
     )
 
 
+class DemandaPrevisaoRequest(_Requisicao):
+    data_previsao: date | None
+
+
 class DemandaUpdateRequest(_Requisicao):
     titulo: str = Field(max_length=255)
     descricao: str
+
+
+class MovimentoQuadroRequest(_Requisicao):
+    origem: StatusPedidoEnum
+    destino: StatusPedidoEnum
 
 
 class StatusUpdateRequest(_Requisicao):

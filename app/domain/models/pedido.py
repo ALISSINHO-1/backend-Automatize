@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import ( # type: ignore
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -12,12 +13,14 @@ from sqlalchemy import ( # type: ignore
     Text,
     func,
     text,
+    select,
 )
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
-from sqlalchemy.orm import Mapped, mapped_column # type: ignore
+from sqlalchemy.orm import Mapped, column_property, mapped_column # type: ignore
 
 from app.core.database import Base
 from app.domain.models.enums import StatusPedidoEnum
+from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 
 
 class Pedido(Base):
@@ -69,6 +72,27 @@ class Pedido(Base):
     responsavel_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
+    )
+
+    data_previsao: Mapped[date | None] = mapped_column(Date)
+    data_inicio: Mapped[datetime | None] = column_property(
+        select(func.min(HistoricoStatusPedido.created_at))
+        .where(
+            HistoricoStatusPedido.pedido_id == id,
+            HistoricoStatusPedido.status_novo == StatusPedidoEnum.EXECUCAO,
+        )
+        .correlate_except(HistoricoStatusPedido)
+        .scalar_subquery()
+    )
+    data_conclusao: Mapped[datetime | None] = column_property(
+        select(func.max(HistoricoStatusPedido.created_at))
+        .where(
+            HistoricoStatusPedido.pedido_id == id,
+            HistoricoStatusPedido.status_novo == StatusPedidoEnum.CONCLUIDO,
+            status == StatusPedidoEnum.CONCLUIDO,
+        )
+        .correlate_except(HistoricoStatusPedido)
+        .scalar_subquery()
     )
 
     created_at: Mapped[datetime | None] = mapped_column(

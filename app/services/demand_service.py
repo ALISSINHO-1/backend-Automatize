@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import base64
+import json
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import func, select # type: ignore
 from sqlalchemy.exc import IntegrityError # type: ignore
 from sqlalchemy.orm import Session # type: ignore
@@ -13,6 +17,7 @@ from sqlalchemy.orm import Session # type: ignore
 from app.core.exceptions import (
     AcessoNegadoException,
     AprovacaoNaoAutorizadaException,
+    AuditoriaQuadroIndisponivelException,
     OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
@@ -24,6 +29,7 @@ from app.domain.models.auditoria_log import AuditoriaLog
 from app.domain.models.enums import PerfilEnum, StatusPedidoEnum, TipoOcorrenciaEnum
 from app.domain.models.etapa_operacional import EtapaOperacional
 from app.domain.models.historico_status_pedido import HistoricoStatusPedido
+from app.domain.models.movimento_quadro import MovimentoQuadro
 from app.domain.models.ocorrencia import Ocorrencia
 from app.domain.models.pedido import Pedido
 from app.domain.models.user import User
@@ -162,6 +168,7 @@ class DemandService:
         titulo: str,
         descricao: str,
         cliente_id: UUID | None = None,
+        data_previsao: date | None = None,
     ) -> Pedido:
         self._exigir_usuario_ativo(usuario)
         self._exigir_perfil(usuario, PerfilEnum.ADMIN, PerfilEnum.CLIENTE)
@@ -185,6 +192,7 @@ class DemandService:
                 "status": StatusPedidoEnum.PLANEAMENTO,
                 "percentual_progresso": ciclo_vida.calcular_progresso(StatusPedidoEnum.PLANEAMENTO),
                 "cliente_id": cliente_id,
+                "data_previsao": data_previsao,
             })
             self._auditar(usuario, pedido, "CRIACAO_DEMANDA", {
                 "codigo_identificador": pedido.codigo_identificador,
@@ -211,6 +219,21 @@ class DemandService:
             })
         return pedido
 
+    def atualizar_previsao(self, usuario: User, pedido_id: UUID, previsao: date | None) -> None:
+        self._exigir_usuario_ativo(usuario)
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            autorizacao.exigir_dono_ou_admin(usuario, pedido, "alterar a previsao")
+            self._bloquear_se_concluido(pedido, "alterar a previsao")
+            anterior = pedido.data_previsao
+            if anterior == previsao:
+                return
+            pedido.data_previsao = previsao
+            self._auditar(usuario, pedido, "EDICAO_DEMANDA", {
+                "anterior": {"data_previsao": anterior.isoformat() if anterior else None},
+                "novo": {"data_previsao": previsao.isoformat() if previsao else None},
+            })
+
     def excluir(self, usuario: User, pedido_id: UUID) -> None:
         self._exigir_usuario_ativo(usuario)
         with self._transacao():
@@ -228,15 +251,33 @@ class DemandService:
     # Maquina de estados
     # ------------------------------------------------------------------
 
-    def alterar_status(self, usuario: User, pedido_id: UUID, novo_status: StatusPedidoEnum) -> Pedido:
+    def alterar_status(
+        self, usuario: User, pedido_id: UUID, novo_status: StatusPedidoEnum, *,
+        quadro: tuple[StatusPedidoEnum, str | None] | None = None,
+    ) -> Pedido:
         """Avanca PLANEAMENTO -> EXECUCAO -> HOMOLOGACAO. A saida de HOMOLOGACAO
         e exclusiva do cliente: aprovar_homologacao ou rejeitar_homologacao."""
         self._exigir_usuario_ativo(usuario)
         with self._transacao():
             pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
             status_atual = pedido.status
+            if quadro is not None:
+                self._exigir_perfil(usuario, PerfilEnum.TECNICO)
+                self._exigir_equipe_operacional(usuario, pedido)
+                origem, chave = quadro
+                if origem != status_atual:
+                    raise OperacaoConflitanteException("A demanda mudou de coluna. Atualize o quadro.")
+                proximos = {
+                    StatusPedidoEnum.PLANEAMENTO: StatusPedidoEnum.EXECUCAO,
+                    StatusPedidoEnum.EXECUCAO: StatusPedidoEnum.HOMOLOGACAO,
+                }
+                if proximos.get(origem) != novo_status:
+                    raise TransicaoEstadoInvalidaException("Só é possível avançar para a próxima etapa operacional.")
             etapas = self.etapas.get_by_pedido(pedido.id)
             self.validar_alteracao_status(usuario, pedido, novo_status, etapas)
+
+            if quadro is not None:
+                self.db.add(self._cifrar_movimento(usuario, pedido, status_atual, novo_status, chave))
 
             pedido.status = novo_status
             self._recalcular_progresso(pedido, etapas)
@@ -246,6 +287,29 @@ class DemandService:
                 "status_novo": novo_status.value,
             })
         return pedido
+
+    def _cifrar_movimento(
+        self, usuario: User, pedido: Pedido, origem: StatusPedidoEnum,
+        destino: StatusPedidoEnum, chave: str | None,
+    ) -> MovimentoQuadro:
+        try:
+            chave_bytes = base64.b64decode(chave or "", altchars=b"-_", validate=True)
+            if len(chave_bytes) != 32:
+                raise ValueError
+        except ValueError:
+            raise AuditoriaQuadroIndisponivelException("Registro seguro do quadro indisponível.") from None
+
+        id_movimento = uuid4()
+        nonce = os.urandom(12)
+        payload = json.dumps({
+            "demanda_id": str(pedido.id),
+            "tecnico_id": str(usuario.id),
+            "origem": origem.value,
+            "destino": destino.value,
+            "ocorrido_em": self._agora().isoformat(),
+        }).encode()
+        cifrado = AESGCM(chave_bytes).encrypt(nonce, payload, id_movimento.bytes)
+        return MovimentoQuadro(id=id_movimento, conteudo_cifrado=nonce + cifrado)
 
     def validar_alteracao_status(self, usuario, pedido, novo_status, etapas):
         """Shared by the REST use case and the legacy compatibility service."""

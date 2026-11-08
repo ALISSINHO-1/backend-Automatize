@@ -34,3 +34,7 @@ class ArquivoInvalidoException(RegraNegocioException):
 class OperacaoConflitanteException(RegraNegocioException):
     """Lancada quando a operacao conflita com o estado atual (ex.: sem efeito ou ja feita)."""
     pass
+
+
+class AuditoriaQuadroIndisponivelException(RegraNegocioException):
+    """A movimentação deve falhar se o registro seguro estiver indisponível."""
