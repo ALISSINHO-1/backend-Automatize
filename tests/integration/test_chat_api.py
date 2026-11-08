@@ -52,3 +52,39 @@ def test_chat_pagina_historico_e_rejeita_mensagem_vazia(client, auth, demanda_id
         "Primeira", "Segunda",
     }
     assert anterior["antes_de"] is None
+
+
+def test_fila_tecnica_libera_chat_depois_de_assumir(client, db, auth, criar_usuario, settings):
+    fila = "/demandas/chat/fila"
+    assert client.get(fila).status_code == 401
+    for papel in ("cliente", "admin"):
+        assert client.get(fila, headers=auth[papel]).status_code == 403
+
+    criado = client.post(
+        "/demandas", headers=auth["cliente"],
+        json={"titulo": "Demanda na fila", "descricao": "Descrição reservada"},
+    )
+    assert criado.status_code == 201
+    dados = criado.json()
+    demanda = f"/demandas/{dados['id']}"
+    canal = f"{demanda}/chat/cliente"
+    assert client.get(canal, headers=auth["tecnico"]).status_code == 404
+    assert client.get(canal, headers=auth["cliente"]).status_code == 409
+    assert client.post(f"{demanda}/assumir", headers=auth["cliente"]).status_code == 403
+    fila_tecnica = client.get(fila, headers=auth["tecnico"]).json()
+    assert [item for item in fila_tecnica if item["id"] == dados["id"]] == [{
+        "id": dados["id"], "codigo_identificador": dados["codigo_identificador"],
+        "titulo": dados["titulo"],
+    }]
+
+    assert client.post(f"{demanda}/assumir", headers=auth["tecnico"]).status_code == 204
+    assert client.post(f"{demanda}/assumir", headers=auth["tecnico"]).status_code == 204
+    assert all(item["id"] != dados["id"] for item in client.get(fila, headers=auth["tecnico"]).json())
+    outro = criar_usuario(PerfilEnum.TECNICO)
+    token = {"Authorization": f"Bearer {create_access_token(str(outro.id), settings)}"}
+    db.commit()
+    assert client.post(f"{demanda}/assumir", headers=token).status_code == 409
+    assert client.get(canal, headers=token).status_code == 404
+    assert client.get(canal, headers=auth["cliente"]).status_code == 200
+    assert client.get(canal, headers=auth["tecnico"]).status_code == 200
+    assert client.get(f"{demanda}/chat/interno", headers=auth["admin"]).status_code == 200

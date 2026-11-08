@@ -13,6 +13,14 @@ class _Requisicao(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class DemandaDisponivelResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    codigo_identificador: str
+    titulo: str
+
+
 class DemandaCreateRequest(_Requisicao):
     titulo: str = Field(max_length=255)
     descricao: str
