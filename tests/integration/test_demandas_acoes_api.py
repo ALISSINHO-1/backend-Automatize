@@ -195,3 +195,26 @@ def test_historico_somente_leitura_com_autores(client, auth, atores, demanda_id)
 
     assert client.get(f"/demandas/{demanda_id}/historico", headers=auth["outro_cliente"]).status_code == 404
     assert client.get(f"/demandas/{uuid4()}/historico", headers=auth["admin"]).status_code == 404
+
+
+def test_datas_da_demanda_refletem_previsao_execucao_e_aceite(client, auth, demanda_id):
+    url = f"/demandas/{demanda_id}"
+    cliente = auth["cliente"]
+    inicial = client.get(url, headers=cliente).json()
+    assert all(inicial[campo] is None for campo in ("data_inicio", "data_previsao", "data_conclusao"))
+
+    previsao = {"data_previsao": "2026-12-20"}
+    assert client.patch(f"{url}/previsao", headers=auth["tecnico"], json=previsao).status_code == 403
+    assert client.patch(f"{url}/previsao", headers=cliente, json=previsao).status_code == 204
+    assert client.get(url, headers=cliente).json()["data_previsao"] == "2026-12-20"
+
+    _homologar(client, auth, demanda_id)
+    em_homologacao = client.get(url, headers=cliente).json()
+    assert em_homologacao["data_inicio"] is not None
+    assert em_homologacao["data_conclusao"] is None
+
+    assert client.post(f"{url}/aceite", headers=cliente, json=ACEITE).status_code == 201
+    concluida = client.get(url, headers=cliente).json()
+    assert concluida["data_inicio"] == em_homologacao["data_inicio"]
+    assert concluida["data_conclusao"] is not None
+    assert client.patch(f"{url}/previsao", headers=cliente, json=previsao).status_code == 409

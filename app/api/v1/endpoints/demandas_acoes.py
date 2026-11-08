@@ -29,6 +29,7 @@ from app.domain.schemas.aprovacao_schema import AprovacaoRespostaSchema, Aprovac
 from app.domain.schemas.demanda_acoes_schema import (
     AuditoriaResponse,
     DemandaCreateRequest,
+    DemandaPrevisaoRequest,
     DemandaDisponivelResponse,
     DemandaUpdateRequest,
     EtapaCreateRequest,
@@ -94,7 +95,7 @@ def criar_demanda(
 ) -> DemandaResponse:
     with _regras_como_http():
         pedido = service.criar(usuario, titulo=dados.titulo, descricao=dados.descricao,
-                               cliente_id=dados.cliente_id)
+                               cliente_id=dados.cliente_id, data_previsao=dados.data_previsao)
     return DemandaResponse.model_validate(pedido)
 
 
@@ -108,6 +109,19 @@ def editar_demanda(
     with _regras_como_http():
         pedido = service.editar(usuario, id, titulo=dados.titulo, descricao=dados.descricao)
     return DemandaResponse.model_validate(pedido)
+
+
+@router.patch("/{id}/previsao", status_code=status.HTTP_204_NO_CONTENT,
+              summary="Atualiza ou remove a data prevista de uma demanda")
+def atualizar_previsao(
+    id: UUID,
+    dados: DemandaPrevisaoRequest,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> Response:
+    with _regras_como_http():
+        service.atualizar_previsao(usuario, id, dados.data_previsao)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT, summary="Exclui uma demanda nao concluida")

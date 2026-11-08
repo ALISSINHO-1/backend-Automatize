@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 
@@ -162,6 +162,7 @@ class DemandService:
         titulo: str,
         descricao: str,
         cliente_id: UUID | None = None,
+        data_previsao: date | None = None,
     ) -> Pedido:
         self._exigir_usuario_ativo(usuario)
         self._exigir_perfil(usuario, PerfilEnum.ADMIN, PerfilEnum.CLIENTE)
@@ -185,6 +186,7 @@ class DemandService:
                 "status": StatusPedidoEnum.PLANEAMENTO,
                 "percentual_progresso": ciclo_vida.calcular_progresso(StatusPedidoEnum.PLANEAMENTO),
                 "cliente_id": cliente_id,
+                "data_previsao": data_previsao,
             })
             self._auditar(usuario, pedido, "CRIACAO_DEMANDA", {
                 "codigo_identificador": pedido.codigo_identificador,
@@ -210,6 +212,21 @@ class DemandService:
                 "novo": {"titulo": titulo, "descricao": descricao},
             })
         return pedido
+
+    def atualizar_previsao(self, usuario: User, pedido_id: UUID, previsao: date | None) -> None:
+        self._exigir_usuario_ativo(usuario)
+        with self._transacao():
+            pedido = self._bloquear_pedido_visivel(usuario, pedido_id)
+            autorizacao.exigir_dono_ou_admin(usuario, pedido, "alterar a previsao")
+            self._bloquear_se_concluido(pedido, "alterar a previsao")
+            anterior = pedido.data_previsao
+            if anterior == previsao:
+                return
+            pedido.data_previsao = previsao
+            self._auditar(usuario, pedido, "EDICAO_DEMANDA", {
+                "anterior": {"data_previsao": anterior.isoformat() if anterior else None},
+                "novo": {"data_previsao": previsao.isoformat() if previsao else None},
+            })
 
     def excluir(self, usuario: User, pedido_id: UUID) -> None:
         self._exigir_usuario_ativo(usuario)

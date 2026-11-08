@@ -28,7 +28,7 @@ def persistence_db():
         connection.create_function("gen_random_uuid", 0, lambda: uuid4().hex)
 
     metadata = MetaData()
-    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos", "auditoria_logs", "etapas_operacionais"):
+    for name in ("users", "pedidos", "ocorrencias", "anexos", "historico_status_pedidos", "auditoria_logs", "etapas_operacionais", "aceites_formais"):
         table = Base.metadata.tables[name].to_metadata(metadata)
         # Adapt only PostgreSQL casts in this test's copied DDL, never models.
         for column in table.columns:

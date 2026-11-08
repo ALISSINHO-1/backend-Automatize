@@ -41,7 +41,7 @@ def test_upgrade_existing_schema_revokes_real_table_and_column_grants(engine, mo
         command.check(config)
         with scratch.connect() as c:
             assert c.exec_driver_sql("SELECT count(*) FROM public.users").scalar_one() == 1
-            assert c.exec_driver_sql("SELECT version_num FROM public.alembic_version").scalar_one() == "2a6d14c839ef"
+            assert c.exec_driver_sql("SELECT version_num FROM public.alembic_version").scalar_one() == "51cb39a0d826"
             for table in PROTECTED_TABLES:
                 service_role_leitura = c.execute(
                     text("SELECT has_table_privilege('service_role',:table,'SELECT')"),

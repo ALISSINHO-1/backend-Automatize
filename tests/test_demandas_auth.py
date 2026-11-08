@@ -438,6 +438,7 @@ def test_response_serializes_uuid_dates_decimal_and_null_fields(api, fake_db):
     assert set(body) == {
         "id", "codigo_identificador", "titulo", "descricao", "status",
         "percentual_progresso", "cliente_id", "responsavel_id", "created_at", "updated_at",
+        "data_inicio", "data_previsao", "data_conclusao",
     }
     assert body["id"] == str(demand.id)
     assert body["cliente_id"] == str(user.id)
