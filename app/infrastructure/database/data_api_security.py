@@ -11,12 +11,30 @@ from sqlalchemy.engine import Connection
 
 DOMAIN_TABLES = (
     "users", "pedidos", "ocorrencias", "anexos", "aceites_formais",
-    "auditoria_logs", "historico_status_pedidos", "etapas_operacionais",
+    "auditoria_logs", "historico_status_pedidos", "etapas_operacionais", "chat_mensagens",
 )
 # The existing HML migration 7b2d4e6f8a10 also protects Alembic's metadata.
 PROTECTED_TABLES = (*DOMAIN_TABLES, "alembic_version")
 CLIENT_ROLES = ("anon", "authenticated")
 PRIVILEGES = ("select", "insert", "update", "delete", "truncate", "references", "trigger", "maintain")
+
+
+class IncompleteVisibilityError(ValueError):
+    """Absence cannot be established through missing grants or filtered rows."""
+
+
+def require_complete_visibility(connection: Connection, tables: Sequence[str]) -> None:
+    if not tables or not set(tables) <= set(PROTECTED_TABLES):
+        raise IncompleteVisibilityError("Reviewed domain tables required.")
+    rows = connection.execute(text("""
+        SELECT c.relname,
+            pg_catalog.has_table_privilege(current_user,c.oid,'SELECT')
+                AND NOT pg_catalog.row_security_active(c.oid) AS complete
+        FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY(:tables)
+    """), {"tables": list(tables)}).mappings().all()
+    if {row["relname"] for row in rows} != set(tables) or not all(row["complete"] for row in rows):
+        raise IncompleteVisibilityError("Complete domain visibility required.")
 
 
 @dataclass(frozen=True)

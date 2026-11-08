@@ -6,6 +6,7 @@ from app.domain.models.aceite_formal import AceiteFormal
 from app.domain.models.auditoria_log import AuditoriaLog
 from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 from app.domain.models.etapa_operacional import EtapaOperacional
+from app.domain.models.chat_mensagem import ChatMensagem
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "AuditoriaLog",
     "HistoricoStatusPedido",
     "EtapaOperacional",
+    "ChatMensagem",
 ]
