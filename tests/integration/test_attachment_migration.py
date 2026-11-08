@@ -34,7 +34,7 @@ def test_attachment_migration_preserves_data_or_aborts_without_repair(engine, mo
             assert error.value.orig.pgcode == "23514"
         with scratch.connect() as c:
             assert c.exec_driver_sql("SELECT count(*) FROM public.anexos").scalar_one() == 1
-            expected = "f9a2d4c6b803" if consistent else "b6e1c8a4d230"
+            expected = "2a6d14c839ef" if consistent else "b6e1c8a4d230"
             assert c.exec_driver_sql("SELECT version_num FROM public.alembic_version").scalar_one() == expected
     finally:
         scratch.dispose()

@@ -48,6 +48,7 @@ def test_health_is_in_openapi(client: TestClient) -> None:
 
 def test_domain_routers_have_expected_prefixes() -> None:
     from app.api.v1.endpoints.auth import router as auth_router
+    from app.api.v1.endpoints.chat import router as chat_router
     from app.api.v1.endpoints.demandas import router as demandas_router
     from app.api.v1.endpoints.demandas_acoes import router as demandas_acoes_router
     from app.api.v1.endpoints.usuarios import router as usuarios_router
@@ -63,7 +64,7 @@ def test_domain_routers_have_expected_prefixes() -> None:
         "/demandas/indicadores",
         "/demandas/{id}",
     ]
-    assert endpoint_routers == (auth_router, demandas_router, demandas_acoes_router, usuarios_router)
+    assert endpoint_routers == (auth_router, demandas_router, demandas_acoes_router, usuarios_router, chat_router)
     assert usuarios_router.prefix == "/usuarios"
     assert demandas_acoes_router.prefix == "/demandas"
 
