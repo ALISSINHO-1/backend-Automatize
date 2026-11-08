@@ -29,6 +29,7 @@ from app.domain.schemas.aprovacao_schema import AprovacaoRespostaSchema, Aprovac
 from app.domain.schemas.demanda_acoes_schema import (
     AuditoriaResponse,
     DemandaCreateRequest,
+    DemandaDisponivelResponse,
     DemandaUpdateRequest,
     EtapaCreateRequest,
     EtapaResponse,
@@ -158,6 +159,31 @@ def rejeitar_homologacao(
     with _regras_como_http():
         pedido = service.rejeitar_homologacao(usuario, id, motivo=dados.motivo)
     return DemandaResponse.model_validate(pedido)
+
+
+@router.get("/chat/fila", response_model=list[DemandaDisponivelResponse],
+            summary="Lista demandas sem responsavel para atendimento tecnico")
+def listar_fila_atendimento(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> list[DemandaDisponivelResponse]:
+    with _regras_como_http():
+        pedidos = service.listar_fila_atendimento(usuario, offset=offset, limit=limit)
+    return [DemandaDisponivelResponse.model_validate(pedido) for pedido in pedidos]
+
+
+@router.post("/{id}/assumir", status_code=status.HTTP_204_NO_CONTENT,
+             summary="Assume uma demanda disponivel como tecnico responsavel")
+def assumir_demanda(
+    id: UUID,
+    usuario: User = Depends(get_current_user),
+    service: DemandService = Depends(get_demand_service),
+) -> Response:
+    with _regras_como_http():
+        service.assumir_demanda(usuario, id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put("/{id}/responsavel", response_model=DemandaResponse,

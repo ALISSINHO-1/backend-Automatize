@@ -464,6 +464,31 @@ class DemandService:
     # Atribuicao e evidencias (SCRUM-75)
     # ------------------------------------------------------------------
 
+    def listar_fila_atendimento(self, usuario: User, *, offset: int, limit: int) -> Sequence[Pedido]:
+        self._exigir_perfil(usuario, PerfilEnum.TECNICO)
+        return self.db.scalars(
+            select(Pedido)
+            .where(
+                Pedido.responsavel_id.is_(None),
+                Pedido.status == StatusPedidoEnum.PLANEAMENTO,
+            )
+            .order_by(Pedido.created_at, Pedido.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+
+    def assumir_demanda(self, usuario: User, pedido_id: UUID) -> None:
+        self._exigir_perfil(usuario, PerfilEnum.TECNICO)
+        with self._transacao():
+            pedido = self.pedidos.get_by_id_for_update(pedido_id)
+            if pedido is None:
+                raise RecursoNaoEncontradoException("Demanda nao encontrada.")
+            if pedido.responsavel_id == usuario.id:
+                return
+            if pedido.responsavel_id is not None or pedido.status != StatusPedidoEnum.PLANEAMENTO:
+                raise OperacaoConflitanteException("A demanda nao esta mais disponivel na fila.")
+            self._registrar_responsavel(usuario, pedido, usuario.id, None)
+
     def atribuir_responsavel(
         self,
         usuario: User,
@@ -492,13 +517,19 @@ class DemandService:
             elif motivo is not None:
                 motivo = motivo.strip() or None
 
-            pedido.responsavel_id = responsavel_id
-            self._auditar(usuario, pedido, "ATRIBUICAO_RESPONSAVEL", {
-                "responsavel_anterior": str(anterior) if anterior else None,
-                "responsavel_novo": str(responsavel_id),
-                "motivo": motivo,
-            })
+            self._registrar_responsavel(usuario, pedido, responsavel_id, motivo)
         return pedido
+
+    def _registrar_responsavel(
+        self, usuario: User, pedido: Pedido, responsavel_id: UUID, motivo: str | None
+    ) -> None:
+        anterior = pedido.responsavel_id
+        pedido.responsavel_id = responsavel_id
+        self._auditar(usuario, pedido, "ATRIBUICAO_RESPONSAVEL", {
+            "responsavel_anterior": str(anterior) if anterior else None,
+            "responsavel_novo": str(responsavel_id),
+            "motivo": motivo,
+        })
 
     # ------------------------------------------------------------------
     # Ocorrencias e correcoes (SCRUM-98)

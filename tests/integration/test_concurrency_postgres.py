@@ -150,6 +150,34 @@ def test_concurrent_assignment_retains_both_audited_changes(engine, committed_or
         assert str(db.get(Pedido, order_id).responsavel_id) == second.detalhes["responsavel_novo"]
 
 
+def test_two_techs_can_claim_a_demand_only_once(engine, committed_order):
+    admin_id, _, order_id = committed_order
+    ids = [uuid4(), uuid4()]
+    with Session(engine) as db:
+        db.add_all([
+            User(id=tech_id, nome="Queue technician", email=f"{tech_id}@test.invalid",
+                 senha_hash="unused", perfil=PerfilEnum.TECNICO, ativo=True)
+            for tech_id in ids
+        ])
+        db.commit()
+
+    operations = [
+        lambda service, _, tech_id=tech_id: service.assumir_demanda(
+            service.db.get(User, tech_id), order_id
+        )
+        for tech_id in ids
+    ]
+    assert sorted(run_simultaneously(engine, admin_id, operations)) == [
+        "OperacaoConflitanteException", "ok",
+    ]
+    with Session(engine) as db:
+        registro = db.execute(select(AuditoriaLog).where(
+            AuditoriaLog.pedido_id == order_id, AuditoriaLog.acao == "ATRIBUICAO_RESPONSAVEL",
+        )).scalar_one()
+        assert db.get(Pedido, order_id).responsavel_id in ids
+        assert registro.usuario_id == db.get(Pedido, order_id).responsavel_id
+
+
 def test_rollback_releases_order_and_discards_stage(engine, committed_order, monkeypatch):
     admin_id, _, order_id = committed_order
     with Session(engine) as db:
