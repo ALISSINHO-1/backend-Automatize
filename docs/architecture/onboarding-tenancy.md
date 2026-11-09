@@ -21,3 +21,11 @@ Este PR e somente codigo. Nenhuma migration foi executada em Supabase.
 2. Revisar roles SQL runtime/migration, backup e impactos. HML so apos aprovacao; principal exige validacao especifica.
 3. Revalidar RLS/ACLs para novas tabelas e impedir grants `anon`/`authenticated`.
 4. Implementar verificacao de e-mail, convite e vinculo comercial antes de habilitar o cadastro.
+
+## Gestao comercial por ADMIN
+- `POST /comercial/organizacoes`: registra empresa com trilha de auditoria.
+- `POST /comercial/organizacoes/{id}/membros`: vincula apenas usuarios CLIENTE ja ativos, com papel empresarial GESTOR ou COLABORADOR.
+- `POST /comercial/contratos/dev`, `/contratos/saas`: cria contratos PENDENTE e registra autor.
+- `PATCH /comercial/contratos/{id}/ativar`: ativa exclusivamente DEV; contrato SAAS continua bloqueado ate as APIs empresariais validarem empresa_id em cada consulta/mutacao.
+- Apenas ADMIN global pode operar esse modulo; cliente nunca escolhe seu proprio contrato, perfil ou empresa.
+- A criacao/ativacao de contratos representa decisao comercial manual, nao integra pagamento. Nenhum contrato gera faturamento automatico.
