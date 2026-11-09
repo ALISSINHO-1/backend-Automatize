@@ -29,3 +29,8 @@ Este PR e somente codigo. Nenhuma migration foi executada em Supabase.
 - `PATCH /comercial/contratos/{id}/ativar`: ativa exclusivamente DEV; contrato SAAS continua bloqueado ate as APIs empresariais validarem empresa_id em cada consulta/mutacao.
 - Apenas ADMIN global pode operar esse modulo; cliente nunca escolhe seu proprio contrato, perfil ou empresa.
 - A criacao/ativacao de contratos representa decisao comercial manual, nao integra pagamento. Nenhum contrato gera faturamento automatico.
+
+## Aprovacao publica DEV
+- `POST /comercial/contas/{id}/aprovar-dev`: ADMIN global aprova somente conta PUBLICO que confirmou email; cria ou ativa contrato DEV + transforma PENDENTE em ATIVO na mesma transacao auditada.
+- APIs legadas `get_current_user` exigem contrato DEV ATIVA para qualquer cliente PUBLICO. Usuario SAAS sem DEV nao entra nas demandas DEV, mesmo que tenha estado ATIVO.
+- LEGADO conserva acesso via escopo `cliente_id` atual. Migracao para contratos estritos deve ser feita depois, com dados e testes.

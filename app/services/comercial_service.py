@@ -100,6 +100,48 @@ class ComercialService:
             })
         return vinculo
 
+    def aprovar_conta_dev(self, admin: User, *, usuario_id: UUID) -> Contratacao:
+        """Confirma vinculo DEV. Cadastro publico exige verificacao de email."""
+        self._admin(admin)
+        with self._transacao():
+            usuario = self.db.scalar(
+                select(User).where(User.id == usuario_id).with_for_update()
+            )
+            if (usuario is None or usuario.ativo is not True
+                    or usuario.perfil != PerfilEnum.CLIENTE):
+                raise RecursoNaoEncontradoException("Cliente inexistente ou inativo.")
+            if usuario.origem_cadastro != "PUBLICO":
+                raise OperacaoConflitanteException(
+                    "Cliente legado deve usar a criacao de contrato DEV padrao."
+                )
+            if usuario.email_verificado_em is None:
+                raise OperacaoConflitanteException(
+                    "A conta precisa confirmar o e-mail antes de ser aprovada."
+                )
+            if usuario.situacao_cadastro != "PENDENTE":
+                raise OperacaoConflitanteException("Conta ja processada.")
+            contrato = self.db.scalar(
+                select(Contratacao).where(
+                    Contratacao.tipo == "DEV",
+                    Contratacao.usuario_cliente_id == usuario_id,
+                    Contratacao.situacao.in_(("PENDENTE", "ATIVA")),
+                ).with_for_update()
+            )
+            if contrato is None:
+                contrato = Contratacao(
+                    tipo="DEV", situacao="ATIVA",
+                    usuario_cliente_id=usuario_id,
+                )
+                self.db.add(contrato)
+            else:
+                contrato.situacao = "ATIVA"
+            usuario.situacao_cadastro = "ATIVO"
+            self.db.flush()
+            self._auditar(admin, "APROVACAO_CADASTRO_DEV", {
+                "usuario_id": str(usuario.id), "contrato_id": str(contrato.id),
+            })
+        return contrato
+
     def criar_contrato_dev(self, admin: User, *, usuario_id: UUID) -> Contratacao:
         self._admin(admin)
         with self._transacao():

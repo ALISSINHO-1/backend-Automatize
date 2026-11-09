@@ -97,3 +97,15 @@ def listar_contas_pendentes(
             .order_by(User.created_at, User.id)
             .offset(offset).limit(limit)
         ).all()
+
+@router.post("/contas/{usuario_id}/aprovar-dev", response_model=ContratoResposta)
+def aprovar_conta_dev(
+    usuario_id: UUID,
+    usuario: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Somente ADMIN global, com email verificado; cria contrato DEV ATIVO."""
+    with _regras_como_http():
+        return ComercialService(db).aprovar_conta_dev(
+            usuario, usuario_id=usuario_id,
+        )
