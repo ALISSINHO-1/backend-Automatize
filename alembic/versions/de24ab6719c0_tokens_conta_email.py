@@ -19,6 +19,9 @@ def upgrade() -> None:
     op.add_column("users", sa.Column(
         "email_verificado_em", sa.DateTime(timezone=True), nullable=True
     ))
+    op.add_column("users", sa.Column(
+        "token_version", sa.Integer(), nullable=False, server_default="0"
+    ))
     op.create_check_constraint(
         "ck_users_origem_cadastro", "users",
         "origem_cadastro IN ('LEGADO','PUBLICO')",

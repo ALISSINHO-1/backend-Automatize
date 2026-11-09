@@ -59,11 +59,13 @@ def get_account_user(
         subject = payload.get("sub")
         issued_at = payload.get("iat")
         expires_at = payload.get("exp")
+        token_version = payload.get("ver", 0)
 
         if (
             not isinstance(subject, str)
             or type(issued_at) is not int
             or type(expires_at) is not int
+            or type(token_version) is not int
         ):
             raise ValueError("Invalid token claims")
 
@@ -78,6 +80,8 @@ def get_account_user(
     # must remain server errors, never be mistaken for invalid credentials.
     user = UserRepository(db).get_by_id(user_id)
     if user is None or user.ativo is not True:
+        raise _unauthorized()
+    if (user.token_version or 0) != token_version:
         raise _unauthorized()
     return user
 

@@ -87,6 +87,7 @@ class TokensContaService:
         try:
             user, _ = self._consumir(token, "REDEFINIR_SENHA")
             user.senha_hash = hash_password(nova_senha)
+            user.token_version = (user.token_version or 0) + 1
             # Outros links de reset sao invalidados atomica e imediatamente.
             usados = self.db.scalars(
                 select(TokenConta).where(

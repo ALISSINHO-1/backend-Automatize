@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, String, text # type: ignore
+from sqlalchemy import Boolean, DateTime, Enum, String, Integer, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 from sqlalchemy import func # type: ignore
@@ -42,6 +42,11 @@ class User(Base):
     origem_cadastro: Mapped[str] = mapped_column(
         String(16), nullable=False, default="LEGADO",
         server_default=text("'LEGADO'")
+    )
+
+    # Todas as sessoes anteriores sao invalidadas ao redefinir a senha.
+    token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
     )
 
     email_verificado_em: Mapped[datetime | None] = mapped_column(
