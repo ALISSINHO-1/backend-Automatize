@@ -38,6 +38,16 @@ class User(Base):
         server_default=text("'CLIENTE'::enum_perfil"),
     )
 
+    # Contas anteriores continuam LEGADO para evitar perda de acesso.
+    origem_cadastro: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="LEGADO",
+        server_default=text("'LEGADO'")
+    )
+
+    email_verificado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Cadastros publicos sao PENDENTE; contas legadas preservam ATIVO.
     situacao_cadastro: Mapped[str] = mapped_column(
         String(16), nullable=False, default="ATIVO", server_default=text("'ATIVO'")

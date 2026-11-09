@@ -26,9 +26,9 @@ def test_revision_chain_and_offline_upgrade_create_all_models_once(monkeypatch):
     output = StringIO()
     config = alembic_config(output_buffer=output)
     revisions = ScriptDirectory.from_config(config)
-    assert revisions.get_heads() == ["c7d9f40a12b3"]
+    assert revisions.get_heads() == ["de24ab6719c0"]
     assert [item.revision for item in revisions.walk_revisions()] == [
-        "c7d9f40a12b3", "84db17ce9f26", "51cb39a0d826", "2a6d14c839ef", "f9a2d4c6b803", "e3b7c1d9f402", "d8f4a2c6e901", "b6e1c8a4d230", "9d4f2a6c8e11", "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
+        "de24ab6719c0", "c7d9f40a12b3", "84db17ce9f26", "51cb39a0d826", "2a6d14c839ef", "f9a2d4c6b803", "e3b7c1d9f402", "d8f4a2c6e901", "b6e1c8a4d230", "9d4f2a6c8e11", "7b2d4e6f8a10", "3c9e7a1b5d20", "fd3fe1dcfeab", "a4fa37701385", "fbfba8e84540",
     ]
     command.upgrade(config, "head", sql=True)
     sql = output.getvalue()
@@ -79,6 +79,7 @@ def test_foreign_keys_and_delete_policies_preserve_business_records():
         ("organizacao_usuarios", "usuario_id"): ("users.id", None),
         ("contratacoes", "usuario_cliente_id"): ("users.id", None),
         ("contratacoes", "organizacao_id"): ("organizacoes.id", None),
+        ("tokens_conta", "usuario_id"): ("users.id", None),
     }
     actual = {}
     for name, table in Base.metadata.tables.items():
