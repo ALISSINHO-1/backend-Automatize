@@ -33,6 +33,7 @@ from app.domain.models.movimento_quadro import MovimentoQuadro
 from app.domain.models.ocorrencia import Ocorrencia
 from app.domain.models.pedido import Pedido
 from app.domain.models.user import User
+from app.domain.models.contratacao import Contratacao
 from app.domain.regras import autorizacao, ciclo_vida
 from app.repositories.auditoria_log_repository import AuditoriaLogRepository
 from app.repositories.anexo_repository import AnexoRepository
@@ -789,8 +790,21 @@ class DemandService:
 
     def _obter_usuario_com_perfil(self, usuario_id: UUID, perfil: PerfilEnum, papel: str) -> User:
         alvo = self.users.get_by_id(usuario_id)
-        if alvo is None or alvo.ativo is not True or alvo.perfil != perfil:
-            raise RecursoNaoEncontradoException(f"O {papel} informado nao existe ou nao e um {perfil.value} ativo.")
+        if (alvo is None or alvo.ativo is not True or alvo.perfil != perfil
+                or getattr(alvo, "situacao_cadastro", None) == "PENDENTE"):
+            raise RecursoNaoEncontradoException(
+                f"O {papel} informado nao existe ou nao e um {perfil.value} ativo."
+            )
+        if perfil == PerfilEnum.CLIENTE and getattr(alvo, "origem_cadastro", None) == "PUBLICO":
+            contrato_id = self.db.scalar(
+                select(Contratacao.id).where(
+                    Contratacao.tipo == "DEV",
+                    Contratacao.situacao == "ATIVA",
+                    Contratacao.usuario_cliente_id == alvo.id,
+                ).limit(1)
+            )
+            if contrato_id is None:
+                raise RecursoNaoEncontradoException("Cliente nao possui contrato DEV ativo.")
         return alvo
 
     def _recalcular_progresso(self, pedido: Pedido, etapas: Sequence[EtapaOperacional] | None = None) -> None:

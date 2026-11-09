@@ -49,7 +49,9 @@ class UsuarioAdminService:
         limit: int = 100,
     ) -> Sequence[User]:
         autorizacao.exigir_perfil(admin, PerfilEnum.ADMIN)
-        consulta = select(User)
+        # Cadastros publicos pendentes sao gerenciados no modulo comercial.
+        # Nao devem aparecer nos seletores de criacao de demandas.
+        consulta = select(User).where(User.situacao_cadastro == "ATIVO")
         if perfil is not None:
             consulta = consulta.where(User.perfil == perfil)
         if ativo is not None:
