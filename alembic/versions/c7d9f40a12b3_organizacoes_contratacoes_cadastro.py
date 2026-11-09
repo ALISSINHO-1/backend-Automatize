@@ -61,7 +61,7 @@ def upgrade() -> None:
         sa.CheckConstraint("papel IN ('GESTOR', 'COLABORADOR')",
                            name="ck_organizacao_usuarios_papel"),
     )
-    op.create_index("ix_organizacao_usuarios_usuario", "organizacao_usuarios", ["usuario_id"])
+    op.create_index("ix_organizacao_usuarios_usuario_id", "organizacao_usuarios", ["usuario_id"])
     op.create_table(
         "contratacoes",
         sa.Column("id", UUID(as_uuid=True), primary_key=True,
@@ -82,8 +82,8 @@ def upgrade() -> None:
             name="ck_contratacoes_tipo_titular",
         ),
     )
-    op.create_index("ix_contratacoes_usuario", "contratacoes", ["usuario_cliente_id"])
-    op.create_index("ix_contratacoes_organizacao", "contratacoes", ["organizacao_id"])
+    op.create_index("ix_contratacoes_usuario_cliente_id", "contratacoes", ["usuario_cliente_id"])
+    op.create_index("ix_contratacoes_organizacao_id", "contratacoes", ["organizacao_id"])
 
     # As tabelas novas sao internas a FastAPI. NENHUMA Data API de usuario.
     for nome in TABELAS:
