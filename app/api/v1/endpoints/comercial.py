@@ -13,7 +13,7 @@ from app.domain.models.user import User
 from app.domain.regras import autorizacao
 from app.domain.schemas.comercial_schema import (
     ContratoDEV, ContratoSAAS, ContratoResposta, NovaOrganizacao,
-    NovoMembro, OrganizacaoResposta, VinculoResposta,
+    NovoMembro, OrganizacaoResposta, VinculoResposta, ContaPendenteResposta,
 )
 from app.services.comercial_service import ComercialService
 
@@ -83,3 +83,17 @@ def ativar_contrato_dev(
         return ComercialService(db).ativar_contrato_dev(
             usuario, contrato_id=contrato_id,
         )
+
+@router.get("/contas/pendentes", response_model=list[ContaPendenteResposta])
+def listar_contas_pendentes(
+    offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100),
+    usuario: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    with _regras_como_http():
+        autorizacao.exigir_perfil(usuario, PerfilEnum.ADMIN)
+        return db.scalars(
+            select(User)
+            .where(User.situacao_cadastro == "PENDENTE")
+            .order_by(User.created_at, User.id)
+            .offset(offset).limit(limit)
+        ).all()
