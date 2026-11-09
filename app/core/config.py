@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)
     # Desabilitado por padrao; ativar somente com antiautomacao/verificacao de e-mail.
     PUBLIC_SIGNUP_ENABLED: bool = False
+    # Entrega obrigatoria para fluxos publicos; nunca incluir segredos no repositorio.
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = Field(default=587, gt=0, le=65535)
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: SecretStr | None = Field(default=None, repr=False)
+    SMTP_FROM_EMAIL: str | None = None
+    PUBLIC_APP_BASE_URL: str | None = None
+    TURNSTILE_SECRET_KEY: SecretStr | None = Field(default=None, repr=False)
+    TURNSTILE_EXPECTED_HOSTNAME: str | None = None
+    PASSWORD_RECOVERY_ENABLED: bool = False
+
 
     @field_validator("cors_origins")
     @classmethod
