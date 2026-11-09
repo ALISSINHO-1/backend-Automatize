@@ -16,7 +16,7 @@ router = APIRouter(prefix="/auth", tags=["Ambientes"])
 
 class AmbienteResponse(BaseModel):
     tipo: str
-    contratacao_id: UUID
+    contratacao_id: UUID | None
     organizacao_id: UUID | None = None
     papel: str
     nome: str
@@ -26,6 +26,9 @@ class ContextoResponse(BaseModel):
     id: UUID
     perfil: str
     situacao_cadastro: str
+    origem_cadastro: str
+    email_verificado: bool
+    acesso_dev: bool
     ambientes: list[AmbienteResponse]
 
 @router.get("/contexto", response_model=ContextoResponse)
@@ -35,6 +38,7 @@ def meu_contexto(
 ) -> ContextoResponse:
     situacao = usuario.situacao_cadastro or "ATIVO"
     ambientes: list[AmbienteResponse] = []
+    acesso_dev = False
     if situacao == "ATIVO":
         # Contratos DEV sao pessoais e visiveis apenas ao titular.
         contratos_dev = db.scalars(
@@ -44,12 +48,22 @@ def meu_contexto(
                 Contratacao.usuario_cliente_id == usuario.id,
             )
         ).all()
+        acesso_dev = bool(contratos_dev)
         for contrato in contratos_dev:
             ambientes.append(AmbienteResponse(
                 tipo="DEV", contratacao_id=contrato.id,
                 papel="CLIENTE", nome="Meus projetos DEV",
             ))
 
+        # Clientes antigos mantem seu portal DEV sem precisar de contratos
+        # ficticios em uma migration potencialmente perigosa.
+        if usuario.perfil.value == "CLIENTE" and usuario.origem_cadastro != "PUBLICO" and not contratos_dev:
+            acesso_dev = True
+            ambientes.append(AmbienteResponse(
+                tipo="DEV", contratacao_id=None,
+                papel="CLIENTE", nome="Projetos de desenvolvimento",
+            ))
+        
         # SaaS exige contrato da empresa, vinculo ativo e empresa ativa.
         vinculos = db.execute(
             select(Organizacao, OrganizacaoUsuario, Contratacao)
@@ -71,5 +85,9 @@ def meu_contexto(
 
     return ContextoResponse(
         id=usuario.id, perfil=usuario.perfil.value,
-        situacao_cadastro=situacao, ambientes=ambientes,
+        situacao_cadastro=situacao,
+        origem_cadastro=usuario.origem_cadastro or "LEGADO",
+        email_verificado=usuario.email_verificado_em is not None,
+        acesso_dev=acesso_dev,
+        ambientes=ambientes,
     )

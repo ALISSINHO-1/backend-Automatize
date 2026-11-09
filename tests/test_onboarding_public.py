@@ -35,7 +35,8 @@ def test_pending_account_has_context_but_no_operational_access(api, fake_db):
     assert result.status_code == 200
     assert result.json() == {
         "id": str(account.id), "perfil": "CLIENTE",
-        "situacao_cadastro": "PENDENTE", "ambientes": [],
+        "situacao_cadastro": "PENDENTE", "origem_cadastro": "LEGADO",
+        "email_verificado": False, "acesso_dev": False, "ambientes": [],
     }
     for path in ("/auth/me", "/demandas", "/usuarios"):
         assert client.get(path, headers=headers).status_code == 401
