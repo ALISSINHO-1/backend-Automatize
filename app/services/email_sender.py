@@ -45,10 +45,6 @@ class EmailSender:
             if is_verification else "Redefina sua senha no Automatize"
         )
         message.set_content(
-            "Para confirmar seu e-mail, acesse o link abaixo. " if is_verification
-            else "Para redefinir sua senha, acesse o link abaixo. "
-        )
-        message.set_content(
             ("Confirme seu e-mail no Automatize: " if is_verification
              else "Redefina sua senha no Automatize: ")
             + url + "\n\n"

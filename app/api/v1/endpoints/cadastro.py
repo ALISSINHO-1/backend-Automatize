@@ -24,7 +24,9 @@ GENERIC = CadastroPublicoResponse()
 
 def _habilitado(settings: Settings, *, reset: bool = False) -> None:
     enabled = settings.PASSWORD_RECOVERY_ENABLED if reset else settings.PUBLIC_SIGNUP_ENABLED
-    if not enabled or not EmailSender.ready(settings) or not settings.TURNSTILE_SECRET_KEY:
+    if (not enabled or not EmailSender.ready(settings)
+            or not settings.TURNSTILE_SECRET_KEY
+            or not settings.TURNSTILE_EXPECTED_HOSTNAME):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Funcionalidade temporariamente indisponivel.",
