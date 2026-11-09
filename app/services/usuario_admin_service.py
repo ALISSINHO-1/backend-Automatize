@@ -84,6 +84,8 @@ class UsuarioAdminService:
         autorizacao.exigir_perfil(admin, PerfilEnum.ADMIN)
         with self._transacao():
             alvo = self._obter_para_alterar(admin, usuario_id)
+            if getattr(alvo, 'situacao_cadastro', None) == 'PENDENTE':
+                raise OperacaoConflitanteException('Cadastro pendente exige verificacao antes de alterar perfil.')
             if alvo.perfil == perfil:
                 raise OperacaoConflitanteException(f"O usuario ja tem o perfil {perfil.value}.")
             self._exigir_outro_admin_ativo(alvo, "alterar o perfil do")
@@ -106,6 +108,8 @@ class UsuarioAdminService:
         autorizacao.exigir_perfil(admin, PerfilEnum.ADMIN)
         with self._transacao():
             alvo = self._obter_para_alterar(admin, usuario_id)
+            if ativo and getattr(alvo, 'situacao_cadastro', None) == 'PENDENTE':
+                raise OperacaoConflitanteException('Cadastro pendente exige verificacao de e-mail e vinculo antes da ativacao.')
             if (alvo.ativo is True) == ativo:
                 raise OperacaoConflitanteException(
                     "O usuario ja esta ativo." if ativo else "O usuario ja esta inativo."

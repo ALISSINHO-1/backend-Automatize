@@ -12,7 +12,7 @@ from app.repositories.base_repository import BaseRepository
 
 
 class UserRepository(BaseRepository[User]):
-    protected_fields = BaseRepository.protected_fields | frozenset({"perfil", "ativo", "senha_hash"})
+    protected_fields = BaseRepository.protected_fields | frozenset({"perfil", "ativo", "senha_hash", "situacao_cadastro"})
 
     def __init__(self, db: Session) -> None:
         super().__init__(User, db)

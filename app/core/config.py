@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str | None = Field(default=None, repr=False)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)
+    # Desabilitado por padrao; ativar somente com antiautomacao/verificacao de e-mail.
+    PUBLIC_SIGNUP_ENABLED: bool = False
 
     @field_validator("cors_origins")
     @classmethod

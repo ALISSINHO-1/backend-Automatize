@@ -28,7 +28,7 @@ def _unauthorized() -> HTTPException:
     )
 
 
-def get_current_user(
+def get_account_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
     configured_settings: Settings = Depends(get_application_settings),
@@ -75,5 +75,16 @@ def get_current_user(
     # must remain server errors, never be mistaken for invalid credentials.
     user = UserRepository(db).get_by_id(user_id)
     if user is None or user.ativo is not True:
+        raise _unauthorized()
+    return user
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+    configured_settings: Settings = Depends(get_application_settings),
+) -> User:
+    """Somente contas operacionais. Cadastro PENDENTE nao acessa demandas."""
+    user = get_account_user(credentials, db, configured_settings)
+    if getattr(user, "situacao_cadastro", None) == "PENDENTE":
         raise _unauthorized()
     return user
