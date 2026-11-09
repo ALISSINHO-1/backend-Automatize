@@ -14,7 +14,10 @@ from app.services.cadastro_publico_service import CadastroPublicoService
 
 def test_public_signup_creates_pending_without_contract(db):
     email = f"contato-{uuid4().hex}@example.com"
-    service = CadastroPublicoService(db)
+    class FakeMailer:
+        def send_token(self, *, email, token, purpose):
+            pass
+    service = CadastroPublicoService(db, FakeMailer())
     service.solicitar(nome="Empresa Interessada", email=email, senha="SenhaSegura123")
     user = db.scalar(select(User).where(User.email == email))
     assert user is not None
