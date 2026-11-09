@@ -48,4 +48,5 @@ class ContaPendenteResposta(BaseModel):
     id: UUID
     nome: str
     email: str
+    email_verificado_em: datetime | None
     created_at: datetime | None
