@@ -34,7 +34,7 @@ def test_dev_contract_requires_explicit_admin_activation(db, criar_usuario):
     service = ComercialService(db)
     contract = service.criar_contrato_dev(admin, usuario_id=client.id)
     assert contract.situacao == "PENDENTE"
-    assert meu_contexto(usuario=client, db=db).ambientes == []
+    assert not any(a.contratacao_id == contract.id for a in meu_contexto(usuario=client, db=db).ambientes)
     service.ativar_contrato_dev(admin, contrato_id=contract.id)
     assert contract.situacao == "ATIVA"
     assert [a.tipo for a in meu_contexto(usuario=client, db=db).ambientes] == ["DEV"]
@@ -50,6 +50,7 @@ def test_saas_contract_does_not_unlock_unimplemented_tenant_api(db, criar_usuari
     )
     contract = service.criar_contrato_saas(admin, organizacao_id=org.id)
     assert contract.situacao == "PENDENTE"
-    assert meu_contexto(usuario=client, db=db).ambientes == []
+    # Conta LEGADO pode manter ambiente DEV; o SaaS pendente nao aparece.
+    assert not any(a.tipo == "SAAS" for a in meu_contexto(usuario=client, db=db).ambientes)
     with pytest.raises(OperacaoConflitanteException):
         service.ativar_contrato_dev(admin, contrato_id=contract.id)

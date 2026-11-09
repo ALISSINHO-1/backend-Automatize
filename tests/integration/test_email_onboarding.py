@@ -26,6 +26,8 @@ class FakeSender:
 
 def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
     sender = FakeSender()
+    # ADMIN persistido antes dos testes de rollback para nao perder sua FK.
+    admin = criar_usuario(PerfilEnum.ADMIN)
     email = f"novo-{uuid4().hex}@example.com"
     CadastroPublicoService(db, sender).solicitar(
         nome="Novo cliente", email=email, senha="SenhaForte123"
@@ -44,7 +46,6 @@ def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
         Contratacao.usuario_cliente_id == novo.id
     )) is None
 
-    admin = criar_usuario(PerfilEnum.ADMIN)
     with pytest.raises(OperacaoConflitanteException, match="e-mail"):
         ComercialService(db).aprovar_conta_dev(admin, usuario_id=novo.id)
     TokensContaService(db).confirmar_email(token)
