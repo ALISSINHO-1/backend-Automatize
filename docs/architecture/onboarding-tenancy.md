@@ -34,3 +34,33 @@ Este PR e somente codigo. Nenhuma migration foi executada em Supabase.
 - `POST /comercial/contas/{id}/aprovar-dev`: ADMIN global aprova somente conta PUBLICO que confirmou email; cria ou ativa contrato DEV + transforma PENDENTE em ATIVO na mesma transacao auditada.
 - APIs legadas `get_current_user` exigem contrato DEV ATIVA para qualquer cliente PUBLICO. Usuario SAAS sem DEV nao entra nas demandas DEV, mesmo que tenha estado ATIVO.
 - LEGADO conserva acesso via escopo `cliente_id` atual. Migracao para contratos estritos deve ser feita depois, com dados e testes.
+
+## Recuperacao de conta e aprovacao DEV adicionadas
+- Migration `de24ab6719c0`: `users.origem_cadastro`, `email_verificado_em`, `token_version`, tabela `tokens_conta` com RLS e acesso bloqueado a `anon`/`authenticated`/`service_role`.
+- `POST /auth/cadastro` exige `PUBLIC_SIGNUP_ENABLED=true`, SMTP TLS e Cloudflare Turnstile com hostname esperado. Contas novas sao `PUBLICO/CLIENTE/PENDENTE`.
+- `POST /auth/verificacao/reenviar`, `POST /auth/verificar-email`, `POST /auth/senha/solicitar`, `POST /auth/senha/redefinir`: token de uso unico, salvo apenas como hash, com expiracao, cooldown de 5 minutos no envio e bloqueio de replay.
+- Alterar senha incrementa `users.token_version`; sessao JWT emitida antes e recusada automaticamente.
+- `POST /comercial/contas/{id}/aprovar-dev` e exclusivamente ADMIN, exige email confirmado, cria contrato DEV ATIVO e ativa conta em transacao auditada.
+- APIs de demandas negam contas PUBLICO sem email verificado + contrato DEV ATIVO e o ADMIN nao consegue cadastrar demandas para clientes PENDENTE.
+- Contas preexistentes mantem origem LEGADO e acesso ao seu escopo pessoal; SaaS multiempresa permanece bloqueado.
+- `GET /auth/contexto` retorna `situacao_cadastro`, `origem_cadastro`, `email_verificado`, `acesso_dev` e apenas ambientes autorizados.
+
+## Variaveis necessarias, segredos apenas no Render
+```text
+PUBLIC_SIGNUP_ENABLED=false
+PASSWORD_RECOVERY_ENABLED=false
+SMTP_HOST=<host>
+SMTP_PORT=587
+SMTP_USERNAME=<usuario>
+SMTP_PASSWORD=<segredo>
+SMTP_FROM_EMAIL=<remetente_verificado>
+PUBLIC_APP_BASE_URL=https://<dominio-pages-hml>
+TURNSTILE_SECRET_KEY=<segredo>
+TURNSTILE_EXPECTED_HOSTNAME=<dominio-pages-hml-sem-esquema>
+```
+
+## Criticos antes da implantacao
+- Banco HML precisa estar na revisao anterior `84db17ce9f26` e com backup verificado; o backend nao pode ser implantado ANTES de suas migrations incrementais. Main exige plano separado.
+- Confirmar as roles SQL e endpoint de email, Turnstile, limites de requisicao na borda WAF e dominio Pages/Render em CORS.
+- Testar no navegador login ADMIN/TECNICO/CLIENTE legado, contas PUBLICO pendentes, verificacao, recuperacao, aprovacao DEV, isolamento e regresso de senha.
+- **Nao ligar `PUBLIC_SIGNUP_ENABLED` ou `PASSWORD_RECOVERY_ENABLED` apenas porque o CI passou**; sao obrigatorios SMTP real, CAPTCHA real, WAF e restauracao testada.
