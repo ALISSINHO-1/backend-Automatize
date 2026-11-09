@@ -38,6 +38,11 @@ class User(Base):
         server_default=text("'CLIENTE'::enum_perfil"),
     )
 
+    # Cadastros publicos sao PENDENTE; contas legadas preservam ATIVO.
+    situacao_cadastro: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="ATIVO", server_default=text("'ATIVO'")
+    )
+
     ativo: Mapped[bool | None] = mapped_column(
         Boolean,
         server_default=text("true"),

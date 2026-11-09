@@ -8,6 +8,9 @@ from app.domain.models.historico_status_pedido import HistoricoStatusPedido
 from app.domain.models.etapa_operacional import EtapaOperacional
 from app.domain.models.chat_mensagem import ChatMensagem
 from app.domain.models.movimento_quadro import MovimentoQuadro
+from app.domain.models.organizacao import Organizacao
+from app.domain.models.organizacao_usuario import OrganizacaoUsuario
+from app.domain.models.contratacao import Contratacao
 
 __all__ = [
     "User",
@@ -20,4 +23,7 @@ __all__ = [
     "EtapaOperacional",
     "ChatMensagem",
     "MovimentoQuadro",
+    "Organizacao",
+    "OrganizacaoUsuario",
+    "Contratacao",
 ]
