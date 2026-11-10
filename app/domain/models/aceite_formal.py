@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, event, text # type: ignore
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint, event, text # type: ignore
 from sqlalchemy.dialects.postgresql import UUID # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column # type: ignore
 
@@ -17,6 +17,14 @@ class AceiteFormal(Base):
 
     __table_args__ = (
         UniqueConstraint("pedido_id", name="uq_aceites_formais_pedido_id"),
+        ForeignKeyConstraint(
+            ["pedido_id", "cliente_id"], ["pedidos.id", "pedidos.cliente_id"],
+            name="fk_aceites_formais_pedido_cliente",
+        ),
+        CheckConstraint(
+            "versao_entregavel ~ '[^[:space:]]' AND declaracao_aceite ~ '[^[:space:]]' "
+            "AND hash_validacao ~ '[^[:space:]]'", name="ck_aceites_formais_conteudo",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

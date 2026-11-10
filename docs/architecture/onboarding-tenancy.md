@@ -60,7 +60,7 @@ TURNSTILE_EXPECTED_HOSTNAME=<dominio-pages-hml-sem-esquema>
 ```
 
 ## Criticos antes da implantacao
-- Banco HML precisa estar na revisao anterior `84db17ce9f26` e com backup verificado; o backend nao pode ser implantado ANTES de suas migrations incrementais. Main exige plano separado.
+- Banco HML precisa estar na revisao anterior `d1f6a8c20391` e com backup verificado; o backend nao pode ser implantado ANTES de suas migrations incrementais. Main exige plano separado.
 - Confirmar as roles SQL e endpoint de email, Turnstile, limites de requisicao na borda WAF e dominio Pages/Render em CORS.
 - Testar no navegador login ADMIN/TECNICO/CLIENTE legado, contas PUBLICO pendentes, verificacao, recuperacao, aprovacao DEV, isolamento e regresso de senha.
 - **Nao ligar `PUBLIC_SIGNUP_ENABLED` ou `PASSWORD_RECOVERY_ENABLED` apenas porque o CI passou**; sao obrigatorios SMTP real, CAPTCHA real, WAF e restauracao testada.

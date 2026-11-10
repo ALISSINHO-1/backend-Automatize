@@ -177,6 +177,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         *,
         cliente_id: UUID | None = None,
         responsavel_id: UUID | None = None,
+        for_share: bool = False,
     ) -> Pedido | None:
         """Fetch one demand inside its ownership scope, if one is supplied."""
         stmt = select(Pedido).where(Pedido.id == pedido_id)
@@ -184,4 +185,7 @@ class PedidoRepository(BaseRepository[Pedido]):
             stmt = stmt.where(Pedido.cliente_id == cliente_id)
         if responsavel_id is not None:
             stmt = stmt.where(Pedido.responsavel_id == responsavel_id)
+        if for_share:
+            # Keep ownership/status stable until the caller finishes its transaction.
+            stmt = stmt.with_for_update(read=True).execution_options(populate_existing=True)
         return self.db.scalar(stmt)

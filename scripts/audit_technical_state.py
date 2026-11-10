@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.core.config import Settings
 from app.core.database import create_database_engine
-from app.infrastructure.database.data_api_security import assess_access, inspect_access
+from app.infrastructure.database.data_api_security import PROTECTED_TABLES, assess_access, inspect_access
 
 
 def inspect_catalog(connection, bucket):
@@ -42,27 +42,24 @@ def inspect_catalog(connection, bucket):
             AND c.relname IN ('aceites_formais','auditoria_logs','pedidos')
         ORDER BY c.relname,t.tgname
     """).mappings()]
-    result["public_grants"] = [dict(r) for r in connection.exec_driver_sql("""
+    result["public_grants"] = [dict(r) for r in connection.execute(text("""
         SELECT n.nspname AS schema_name,c.relname AS table_name,a.privilege_type
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
         WHERE a.grantee=0 AND c.relkind='r' AND (
-            (n.nspname='public' AND c.relname IN
-                ('users','pedidos','ocorrencias','anexos','aceites_formais','auditoria_logs',
-                 'historico_status_pedidos','etapas_operacionais','alembic_version'))
+            (n.nspname='public' AND c.relname=ANY(:tables))
             OR (n.nspname='storage' AND c.relname IN ('objects','buckets')))
         ORDER BY n.nspname,c.relname,a.privilege_type
-    """).mappings()]
-    result["public_column_grants"] = [dict(r) for r in connection.exec_driver_sql("""
+    """), {"tables": list(PROTECTED_TABLES)}).mappings()]
+    result["public_column_grants"] = [dict(r) for r in connection.execute(text("""
         SELECT c.relname AS table_name,col.attname AS column_name,a.privilege_type
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         JOIN pg_attribute col ON col.attrelid=c.oid
         CROSS JOIN LATERAL aclexplode(col.attacl) a
         WHERE n.nspname='public' AND col.attnum>0 AND NOT col.attisdropped AND a.grantee=0
-            AND c.relname IN ('users','pedidos','ocorrencias','anexos','aceites_formais',
-                'auditoria_logs','historico_status_pedidos','etapas_operacionais','alembic_version')
+            AND c.relname=ANY(:tables)
         ORDER BY c.relname,col.attname,a.privilege_type
-    """).mappings()]
+    """), {"tables": list(PROTECTED_TABLES)}).mappings()]
     result["role_boundaries"] = [dict(r) for r in connection.exec_driver_sql("""
         SELECT CASE WHEN r.rolname=current_user THEN 'backend' ELSE r.rolname END AS role_name,
             r.rolsuper,r.rolbypassrls,r.rolcreaterole,r.rolcreatedb,r.rolcanlogin,r.rolinherit,

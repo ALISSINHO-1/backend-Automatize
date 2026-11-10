@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,16 @@ router = APIRouter(prefix="/demandas/{pedido_id}/chat", tags=["Chat"])
 
 
 class NovaMensagem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     texto: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+    @field_validator("texto")
+    @classmethod
+    def recusar_caractere_nulo(cls, value: str) -> str:
+        if "\x00" in value:
+            raise ValueError("A mensagem não pode conter caracteres nulos.")
+        return value
 
 
 class MensagemResponse(BaseModel):
@@ -39,7 +48,10 @@ class HistoricoResponse(BaseModel):
 
 def _validar_conversa(db: Session, pedido_id: UUID, canal: Canal, usuario: User) -> None:
     # Mantém a atribuição estável até terminar a leitura ou gravar a mensagem.
-    pedido = db.scalar(select(Pedido).where(Pedido.id == pedido_id).with_for_update(read=True))
+    pedido = db.scalar(
+        select(Pedido).where(Pedido.id == pedido_id).with_for_update(read=True)
+        .execution_options(populate_existing=True)
+    )
     if pedido is None:
         raise HTTPException(404, "Conversa não encontrada.")
     permitido = is_responsavel(usuario, pedido)

@@ -1,3 +1,4 @@
+"""Public attachment metadata and short-lived private access (HML contract)."""
 from datetime import datetime
 from uuid import UUID
 
@@ -8,6 +9,7 @@ class AnexoPublico(BaseModel):
     id: UUID
     pedido_id: UUID
     ocorrencia_id: UUID | None
+    enviado_por_id: UUID
     nome_arquivo: str
     extensao: str
     tamanho_bytes: int
