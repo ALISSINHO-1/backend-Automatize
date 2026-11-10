@@ -91,3 +91,66 @@ def test_me_recusa_credenciais_invalidas(identity_client, authorization):
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Bearer"
     assert response.json() == {"detail": "Não foi possível autenticar."}
+
+
+def test_perfil_expoe_somente_dados_do_proprio_usuario(identity_client, login_user):
+    user, authorization = login_user(PerfilEnum.TECNICO)
+    response = identity_client.get("/auth/me/detalhes", headers=authorization)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(user.id)
+    assert payload["perfil"] == "TECNICO"
+    assert payload["ativo"] is True
+    assert "senha_hash" not in payload
+    assert "token_version" not in payload
+
+
+def test_edicao_do_proprio_nome_nao_altera_perfil(identity_client, login_user, db):
+    user, authorization = login_user(PerfilEnum.CLIENTE)
+    response = identity_client.patch(
+        "/auth/me", headers=authorization, json={"nome": "  Cliente   Atualizado  "}
+    )
+    assert response.status_code == 200
+    assert response.json()["nome"] == "Cliente Atualizado"
+    assert response.json()["perfil"] == "CLIENTE"
+    db.refresh(user)
+    assert user.nome == "Cliente Atualizado"
+
+
+def test_usuario_nao_pode_elevar_privilegios_na_edicao(identity_client, login_user):
+    _user, authorization = login_user(PerfilEnum.CLIENTE)
+    response = identity_client.patch(
+        "/auth/me", headers=authorization, json={"nome": "Teste", "perfil": "ADMIN"}
+    )
+    assert response.status_code == 422
+
+
+def test_troca_de_senha_invalida_tokens_antigos(identity_client, login_user, db):
+    user, authorization = login_user(PerfilEnum.ADMIN)
+    antiga = user.token_version or 0
+    incorreta = identity_client.post(
+        "/auth/me/senha", headers=authorization,
+        json={"senha_atual": "senha-errada", "nova_senha": "nova-senha-segura-123"}
+    )
+    assert incorreta.status_code == 400
+    assert user.token_version == antiga
+    resposta = identity_client.post(
+        "/auth/me/senha", headers=authorization,
+        json={"senha_atual": "synthetic-login-password", "nova_senha": "nova-senha-segura-123"}
+    )
+    assert resposta.status_code == 204
+    db.refresh(user)
+    assert user.token_version == antiga + 1
+    assert identity_client.get("/auth/me", headers=authorization).status_code == 401
+    novo_login = identity_client.post("/auth/login", json={
+        "email": user.email, "senha": "nova-senha-segura-123"
+    })
+    assert novo_login.status_code == 200
+
+
+def test_perfil_exige_sessao(identity_client):
+    assert identity_client.get("/auth/me/detalhes").status_code == 401
+    assert identity_client.patch("/auth/me", json={"nome": "Teste"}).status_code == 401
+    assert identity_client.post("/auth/me/senha", json={
+        "senha_atual": "uma-senha", "nova_senha": "outra-senha-segura"
+    }).status_code == 401

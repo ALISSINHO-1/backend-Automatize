@@ -61,7 +61,13 @@ def test_domain_routers_have_expected_prefixes() -> None:
     assert auth_router.tags == ["Autenticação"]
     assert demandas_router.prefix == "/demandas"
     assert demandas_router.tags == ["Demandas"]
-    assert [route.path for route in auth_router.routes] == ["/auth/login", "/auth/me"]
+    assert [(route.path, sorted(route.methods)) for route in auth_router.routes] == [
+        ("/auth/login", ["POST"]),
+        ("/auth/me", ["GET"]),
+        ("/auth/me/detalhes", ["GET"]),
+        ("/auth/me", ["PATCH"]),
+        ("/auth/me/senha", ["POST"]),
+    ]
     assert [route.path for route in demandas_router.routes] == [
         "/demandas",
         "/demandas/indicadores",
