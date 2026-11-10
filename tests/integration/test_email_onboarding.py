@@ -5,7 +5,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
+from app.core.config import Settings
 from app.core.exceptions import OperacaoConflitanteException
+from app.services.auth_service import AuthService, AuthenticationError
 from app.core.security import verify_password
 from app.domain.models.contratacao import Contratacao
 from app.domain.models.enums import PerfilEnum
@@ -51,11 +53,16 @@ def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
         Contratacao.usuario_cliente_id == novo.id
     )) is None
 
+    auth = AuthService(db, Settings(JWT_SECRET_KEY="test-secret-with-more-than-32-characters"))
+    with pytest.raises(AuthenticationError):
+        auth.authenticate(email, "SenhaForte123")
+
     with pytest.raises(OperacaoConflitanteException, match="e-mail"):
         ComercialService(db).aprovar_conta_dev(admin, usuario_id=novo.id)
     TokensContaService(db).confirmar_email(token)
     assert novo.email_verificado_em is not None
     assert novo.situacao_cadastro == "PENDENTE"
+    assert isinstance(auth.authenticate(email, "SenhaForte123"), str)
     with pytest.raises(TokenInvalido):
         TokensContaService(db).confirmar_email(token)
     approved = ComercialService(db).aprovar_conta_dev(admin, usuario_id=novo.id)

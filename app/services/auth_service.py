@@ -33,4 +33,9 @@ class AuthService:
         if not password_is_valid or not user.ativo:
             raise AuthenticationError
 
+        # Cadastros públicos só autenticam após comprovar o endereço de e-mail.
+        # Contas internas/legadas não sofrem mudança de acesso.
+        if user.origem_cadastro == "PUBLICO" and user.email_verificado_em is None:
+            raise AuthenticationError
+
         return create_access_token(str(user.id), self.configured_settings, token_version=user.token_version or 0)
