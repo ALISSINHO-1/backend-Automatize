@@ -56,8 +56,4 @@ Aprovacao da equipe, janela, backup testado, identidades SQL verificadas, releas
 
 ## Evidencias de revisao
 
-A verificacao remota neste PR foi **somente leitura**. Nao houve aplicacao de migration, alteracao de grants/RLS, backup real, nem verificacao com as credenciais efetivas do Render. Atualizacao 2026-11-10: GitHub Actions da head 1d2eb08 concluiu com success (run 42523914594, API e PostgreSQL, Ubuntu/Python 3.12/PostgreSQL 16). Esse CI nao cobre as alteracoes locais nao publicadas. Resultados locais atuais e limites: docs/validacao-final-banco-imagens.md.
-
-## CI conferido em 10/11/2026
-
-O CI do PR22 esta aprovado para a head 1d2eb08. [Execucao no GitHub Actions](https://github.com/ALISSINHO-1/backend-Automatize/actions/runs/42523914594). O PR continua draft e nao integrado; sucesso de CI nao autoriza deploy nem prova equivalencia com o principal. Esta atualizacao e local e preserva o relato historico acima.
+A verificacao remota neste PR foi **somente leitura**. Nao houve aplicacao de migration, alteracao de grants/RLS, backup real, nem verificacao com as credenciais efetivas do Render. Os testes locais do PR e os testes do CI precisam ser identificados separadamente; nao afirmar que testes isolados foram executados por esta revisao antes do resultado do CI.
