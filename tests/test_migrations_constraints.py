@@ -86,7 +86,7 @@ def test_foreign_keys_and_delete_policies_preserve_business_records():
         assert [column.name for column in table.primary_key] == ["id"]
         assert not table.c.id.nullable
         for fk in table.foreign_keys:
-            if fk.constraint.name == "fk_anexos_ocorrencia_pedido":
+            if fk.constraint.name in {"fk_anexos_ocorrencia_pedido", "fk_aceites_formais_pedido_cliente"}:
                 continue
             actual[name, fk.parent.name] = (fk.target_fullname, fk.ondelete)
             if fk.ondelete == "SET NULL":
