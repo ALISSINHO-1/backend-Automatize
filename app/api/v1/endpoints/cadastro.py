@@ -11,7 +11,7 @@ from app.domain.schemas.cadastro_schema import (
     CadastroPublicoRequest, CadastroPublicoResponse, EmailPublicoRequest,
     TokenConfirmacaoRequest, RedefinirSenhaRequest,
 )
-from app.services.cadastro_publico_service import CadastroPublicoService
+from app.services.cadastro_publico_service import CadastroPublicoService, TERMOS_USO_VERSAO
 from app.services.email_sender import EmailDeliveryError, EmailSender
 from app.services.tokens_conta_service import TokenInvalido, TokensContaService
 from app.services.turnstile_service import valida_turnstile
@@ -58,10 +58,15 @@ def solicitar_cadastro(
     settings: Settings = Depends(get_application_settings),
 ) -> CadastroPublicoResponse:
     _habilitado(settings)
+    if dados.termos_versao != TERMOS_USO_VERSAO:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Atualize a página e leia a versão vigente dos Termos de Uso.",
+        )
     _captcha(dados.turnstile_token, settings)
     sender = EmailSender(settings)
     return _generic_send(lambda: CadastroPublicoService(db, sender).solicitar(
-        nome=dados.nome, email=dados.email, senha=dados.senha
+        nome=dados.nome, email=dados.email, senha=dados.senha, termos_versao=dados.termos_versao
     ))
 
 

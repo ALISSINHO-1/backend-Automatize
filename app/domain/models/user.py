@@ -53,6 +53,11 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    termos_uso_versao: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    termos_uso_aceitos_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Cadastros publicos sao PENDENTE; contas legadas preservam ATIVO.
     situacao_cadastro: Mapped[str] = mapped_column(
         String(16), nullable=False, default="ATIVO", server_default=text("'ATIVO'")

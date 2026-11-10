@@ -1,4 +1,6 @@
 """Cadastro publico: nova identidade sem privilegios e link de verificacao."""
+from datetime import datetime, timezone
+
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -10,12 +12,18 @@ from app.services.email_sender import EmailSender
 from app.services.tokens_conta_service import TokensContaService
 
 
+# Deve corresponder ao documento exibido no cadastro do frontend.
+TERMOS_USO_VERSAO = "1.0"
+
+
 class CadastroPublicoService:
     def __init__(self, db: Session, sender: EmailSender):
         self.db = db
         self.sender = sender
 
-    def solicitar(self, *, nome: str, email: str, senha: str) -> None:
+    def solicitar(
+        self, *, nome: str, email: str, senha: str, termos_versao: str
+    ) -> None:
         hashed = hash_password(senha)
         try:
             # Nao divulgar se o e-mail ja existe.
@@ -26,6 +34,8 @@ class CadastroPublicoService:
                 nome=nome, email=email, senha_hash=hashed,
                 perfil=PerfilEnum.CLIENTE, origem_cadastro="PUBLICO",
                 situacao_cadastro="PENDENTE", ativo=True,
+                termos_uso_versao=termos_versao,
+                termos_uso_aceitos_em=datetime.now(timezone.utc),
             )
             self.db.add(user)
             self.db.flush()
