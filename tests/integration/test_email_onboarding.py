@@ -29,6 +29,7 @@ def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
     # ADMIN persistido antes dos testes de rollback para nao perder sua FK.
     admin = criar_usuario(PerfilEnum.ADMIN)
     email = f"novo-{uuid4().hex}@example.com"
+    antes_do_cadastro = datetime.now(timezone.utc)
     CadastroPublicoService(db, sender).solicitar(
         nome="Novo cliente", email=email, senha="SenhaForte123", termos_versao=TERMOS_USO_VERSAO
     )
@@ -38,7 +39,7 @@ def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
     assert novo.email_verificado_em is None
     assert novo.termos_uso_versao == TERMOS_USO_VERSAO
     assert novo.termos_uso_aceitos_em is not None
-    assert novo.termos_uso_aceitos_em.utcoffset() == timedelta(0)
+    assert antes_do_cadastro <= novo.termos_uso_aceitos_em <= datetime.now(timezone.utc)
     assert admin.termos_uso_aceitos_em is None
     assert len(sender.sent) == 1
     _, token, purpose = sender.sent[0]
