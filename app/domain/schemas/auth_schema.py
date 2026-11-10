@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -41,3 +42,29 @@ class UsuarioAtualResponse(BaseModel):
     nome: str
     email: str
     perfil: PerfilEnum
+
+
+class MeuPerfilDetalhesResponse(UsuarioAtualResponse):
+    ativo: bool
+    criado_em: datetime | None = None
+    email_verificado: bool
+    origem_cadastro: str | None = None
+
+
+class MeuNomeUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nome: str = Field(min_length=2, max_length=255)
+
+    @field_validator("nome")
+    @classmethod
+    def validar_nome(cls, value: str) -> str:
+        normalizado = " ".join(value.split())
+        if len(normalizado) < 2:
+            raise ValueError("Informe seu nome com pelo menos 2 caracteres.")
+        return normalizado
+
+
+class MinhaSenhaUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    senha_atual: str = Field(min_length=1, max_length=1024)
+    nova_senha: str = Field(min_length=8, max_length=1024)
