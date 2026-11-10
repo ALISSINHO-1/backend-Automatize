@@ -2,9 +2,24 @@
 from pydantic import SecretStr
 
 from app.core.security import hash_password
+from app.core.config import Settings
+from app.main import cadastro_configuracao_pendente
 from app.domain.models.enums import PerfilEnum
 from app.services.cadastro_publico_service import TERMOS_USO_VERSAO
 from tests.test_demandas_auth import api, bearer, fake_db, make_token, make_user  # noqa: F401
+
+
+def test_diagnostico_nao_expoe_segredos():
+    config = Settings(_env_file=None, SMTP_PASSWORD="minha_senha_sensivel",
+                      TURNSTILE_SECRET_KEY="segredo_sensivel", PUBLIC_SIGNUP_ENABLED=True)
+    pendencias = cadastro_configuracao_pendente(config)
+    assert "SMTP_PASSWORD" not in pendencias
+    assert "TURNSTILE_SECRET_KEY" not in pendencias
+    assert "SMTP_HOST" in pendencias
+    assert "TURNSTILE_SITE_KEY" in pendencias
+    assert "PUBLIC_APP_BASE_URL" in pendencias
+    assert "minha_senha_sensivel" not in str(pendencias)
+    assert "segredo_sensivel" not in str(pendencias)
 
 
 def cadastro_valido():
