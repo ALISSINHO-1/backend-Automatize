@@ -1,4 +1,6 @@
 """Security contract for pending public accounts."""
+from pydantic import SecretStr
+
 from app.core.security import hash_password
 from app.domain.models.enums import PerfilEnum
 from app.services.cadastro_publico_service import TERMOS_USO_VERSAO
@@ -10,6 +12,37 @@ def cadastro_valido():
         "nome": "Cliente Novo", "email": "novo@example.com", "senha": "SenhaSegura123",
         "termos_aceitos": True, "termos_versao": TERMOS_USO_VERSAO,
     }
+
+
+def test_conta_config_nao_expoe_segredos_e_vem_desativada(api):
+    client, _, _settings = api
+    result = client.get("/auth/conta/config")
+    assert result.status_code == 200
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json() == {
+        "cadastro_habilitado": False,
+        "recuperacao_habilitada": False,
+        "turnstile_site_key": "",
+    }
+
+
+def test_conta_config_habilita_auto_cadastro_quando_seguranca_esta_pronta(
+    api, monkeypatch
+):
+    client, _, settings = api
+    monkeypatch.setattr(settings, "PUBLIC_SIGNUP_ENABLED", True)
+    monkeypatch.setattr(settings, "TURNSTILE_SITE_KEY", "site-publica")
+    monkeypatch.setattr(settings, "TURNSTILE_SECRET_KEY", SecretStr("nao-expor-este-segredo"))
+    monkeypatch.setattr(settings, "TURNSTILE_EXPECTED_HOSTNAME", "automatize-dev-hml.pages.dev")
+    monkeypatch.setattr("app.api.v1.endpoints.cadastro.EmailSender.ready", lambda _: True)
+    result = client.get("/auth/conta/config")
+    assert result.status_code == 200
+    assert result.json() == {
+        "cadastro_habilitado": True,
+        "recuperacao_habilitada": False,
+        "turnstile_site_key": "site-publica",
+    }
+    assert "nao-expor-este-segredo" not in result.text
 
 
 def test_public_registration_is_disabled_by_default(api, fake_db):
