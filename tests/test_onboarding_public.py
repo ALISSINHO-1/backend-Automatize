@@ -82,6 +82,7 @@ def test_signup_rejects_stale_terms_before_captcha(api, fake_db, monkeypatch):
     monkeypatch.setattr(settings, "PUBLIC_SIGNUP_ENABLED", True)
     monkeypatch.setattr(settings, "TURNSTILE_SECRET_KEY", "dummy")
     monkeypatch.setattr(settings, "TURNSTILE_EXPECTED_HOSTNAME", "example.com")
+    monkeypatch.setattr(settings, "TURNSTILE_SITE_KEY", "site-publica")
     monkeypatch.setattr("app.api.v1.endpoints.cadastro.EmailSender.ready", lambda _: True)
     response = client.post("/auth/cadastro", json={**cadastro_valido(), "termos_versao": "0.9"})
     assert response.status_code == 409
