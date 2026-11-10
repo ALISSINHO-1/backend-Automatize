@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str | None = None
     PUBLIC_APP_BASE_URL: str | None = None
     TURNSTILE_SECRET_KEY: SecretStr | None = Field(default=None, repr=False)
+    # Publica, pode ser enviada ao navegador, diferente de TURNSTILE_SECRET_KEY.
+    TURNSTILE_SITE_KEY: str | None = None
     TURNSTILE_EXPECTED_HOSTNAME: str | None = None
     PASSWORD_RECOVERY_ENABLED: bool = False
 

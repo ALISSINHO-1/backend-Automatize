@@ -13,7 +13,7 @@ from app.services.tokens_conta_service import TokensContaService
 
 
 # Deve corresponder ao documento exibido no cadastro do frontend.
-TERMOS_USO_VERSAO = "1.0"
+TERMOS_USO_VERSAO = "1.1"
 
 
 class CadastroPublicoService:

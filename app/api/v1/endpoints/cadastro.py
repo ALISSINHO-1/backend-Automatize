@@ -1,7 +1,7 @@
 """Solicitacoes publicas; captcha e mail obrigatorios, conta com acesso limitado."""
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_application_settings
@@ -22,15 +22,44 @@ logger = logging.getLogger(__name__)
 GENERIC = CadastroPublicoResponse()
 
 
+def _configuracao_pronta(settings: Settings) -> bool:
+    """Requisitos reais de um cadastro publico (sem expor segredos ao navegador)."""
+    return bool(
+        EmailSender.ready(settings)
+        and settings.TURNSTILE_SECRET_KEY
+        and settings.TURNSTILE_EXPECTED_HOSTNAME
+        and settings.TURNSTILE_SITE_KEY
+        and settings.TURNSTILE_SITE_KEY.strip()
+    )
+
+
 def _habilitado(settings: Settings, *, reset: bool = False) -> None:
     enabled = settings.PASSWORD_RECOVERY_ENABLED if reset else settings.PUBLIC_SIGNUP_ENABLED
-    if (not enabled or not EmailSender.ready(settings)
-            or not settings.TURNSTILE_SECRET_KEY
-            or not settings.TURNSTILE_EXPECTED_HOSTNAME):
+    if not enabled or not _configuracao_pronta(settings):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Funcionalidade temporariamente indisponivel.",
         )
+
+
+@router.get("/conta/config", response_model=dict[str, bool | str])
+def configuracao_conta(
+    response: Response,
+    settings: Settings = Depends(get_application_settings),
+) -> dict[str, bool | str]:
+    """O frontend descobre em tempo de execucao os fluxos disponiveis.
+
+    A site key do Turnstile e publica. Nunca devolver SMTP ou secret key.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    pronta = _configuracao_pronta(settings)
+    cadastro = bool(settings.PUBLIC_SIGNUP_ENABLED and pronta)
+    recuperacao = bool(settings.PASSWORD_RECOVERY_ENABLED and pronta)
+    return {
+        "cadastro_habilitado": cadastro,
+        "recuperacao_habilitada": recuperacao,
+        "turnstile_site_key": (settings.TURNSTILE_SITE_KEY or "") if (cadastro or recuperacao) else "",
+    }
 
 
 def _captcha(token: str | None, settings: Settings) -> None:
