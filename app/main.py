@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import logging
+from urllib.parse import urlparse
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -10,6 +12,31 @@ from app.api.v1.router import router as api_v1_router
 from app.core.config import Settings, settings
 from app.core.database import create_database_engine, create_session_factory
 
+logger = logging.getLogger(__name__)
+
+
+def cadastro_configuracao_pendente(settings: Settings) -> list[str]:
+    """Somente nomes das variáveis faltantes, jamais segredos ou dados pessoais."""
+    campos = {
+        "SMTP_HOST": settings.SMTP_HOST,
+        "SMTP_USERNAME": settings.SMTP_USERNAME,
+        "SMTP_PASSWORD": settings.SMTP_PASSWORD,
+        "SMTP_FROM_EMAIL": settings.SMTP_FROM_EMAIL,
+        "TURNSTILE_SITE_KEY": settings.TURNSTILE_SITE_KEY,
+        "TURNSTILE_SECRET_KEY": settings.TURNSTILE_SECRET_KEY,
+        "TURNSTILE_EXPECTED_HOSTNAME": settings.TURNSTILE_EXPECTED_HOSTNAME,
+        "PUBLIC_APP_BASE_URL": settings.PUBLIC_APP_BASE_URL,
+    }
+    faltantes = [nome for nome, valor in campos.items() if not valor]
+    app_url = settings.PUBLIC_APP_BASE_URL or ""
+    if app_url:
+        parsed = urlparse(app_url)
+        if (parsed.scheme != "https" or not parsed.netloc or
+                parsed.username or parsed.password or parsed.query or parsed.fragment):
+            faltantes.append("PUBLIC_APP_BASE_URL_FORMATO")
+    return faltantes
+
+
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     configured_settings = app_settings if app_settings is not None else Settings()
@@ -17,6 +44,13 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         configured_settings.validate_application_configuration()
+        if configured_settings.PUBLIC_SIGNUP_ENABLED:
+            pendencias = cadastro_configuracao_pendente(configured_settings)
+            if pendencias:
+                logger.warning("Cadastro publico indisponivel; revisar variaveis: %s",
+                               ", ".join(pendencias))
+            else:
+                logger.info("Cadastro publico: parametros basicos presentes; teste de SMTP e Turnstile pendente")
         database_engine = create_database_engine(configured_settings)
         application.state.engine = database_engine
         application.state.session_factory = create_session_factory(database_engine)
