@@ -69,6 +69,10 @@ class SimulatedClient:
         assert name == "synthetic-private"
         return self.bucket
 
+    def get_bucket(self, name):
+        assert name == "synthetic-private"
+        return {"public": False}
+
 
 @pytest.mark.parametrize("failure", [None, "upload-timeout", "timeout-and-compensation-failure"],
                          ids=["successful-concurrent-commit", "acknowledgement-lost", "compensation-unavailable"])
