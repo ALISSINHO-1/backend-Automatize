@@ -36,7 +36,9 @@ class EmailSender:
         if purpose not in ("VERIFICAR_EMAIL", "REDEFINIR_SENHA"):
             raise ValueError("Finalidade de token invalida.")
         path = "verificar-email" if is_verification else "redefinir-senha"
-        url = (self.settings.PUBLIC_APP_BASE_URL or "").rstrip("/") + "/" + path + "?" + urlencode({"token": token})
+        # O Flutter Web usa navegação por fragmento (/#/rota). Sem o hash,
+        # o link abriria o aplicativo em /, não a tela de confirmação.
+        url = (self.settings.PUBLIC_APP_BASE_URL or "").rstrip("/") + "/#/" + path + "?" + urlencode({"token": token})
         message = EmailMessage()
         message["From"] = self.settings.SMTP_FROM_EMAIL
         message["To"] = email
