@@ -11,7 +11,7 @@ from app.domain.models.contratacao import Contratacao
 from app.domain.models.enums import PerfilEnum
 from app.domain.models.token_conta import TokenConta
 from app.domain.models.user import User
-from app.services.cadastro_publico_service import CadastroPublicoService
+from app.services.cadastro_publico_service import CadastroPublicoService, TERMOS_USO_VERSAO
 from app.services.comercial_service import ComercialService
 from app.services.tokens_conta_service import TokenInvalido, TokensContaService, digerir
 
@@ -29,13 +29,18 @@ def test_cadastro_verificacao_e_aprovacao_dev(db, criar_usuario):
     # ADMIN persistido antes dos testes de rollback para nao perder sua FK.
     admin = criar_usuario(PerfilEnum.ADMIN)
     email = f"novo-{uuid4().hex}@example.com"
+    antes_do_cadastro = datetime.now(timezone.utc)
     CadastroPublicoService(db, sender).solicitar(
-        nome="Novo cliente", email=email, senha="SenhaForte123"
+        nome="Novo cliente", email=email, senha="SenhaForte123", termos_versao=TERMOS_USO_VERSAO
     )
     novo = db.scalar(select(User).where(User.email == email))
     assert novo and novo.situacao_cadastro == "PENDENTE"
     assert novo.origem_cadastro == "PUBLICO"
     assert novo.email_verificado_em is None
+    assert novo.termos_uso_versao == TERMOS_USO_VERSAO
+    assert novo.termos_uso_aceitos_em is not None
+    assert antes_do_cadastro <= novo.termos_uso_aceitos_em <= datetime.now(timezone.utc)
+    assert admin.termos_uso_aceitos_em is None
     assert len(sender.sent) == 1
     _, token, purpose = sender.sent[0]
     assert purpose == "VERIFICAR_EMAIL"

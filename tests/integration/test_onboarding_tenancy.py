@@ -9,7 +9,7 @@ from app.domain.models.enums import PerfilEnum
 from app.domain.models.organizacao import Organizacao
 from app.domain.models.organizacao_usuario import OrganizacaoUsuario
 from app.domain.models.user import User
-from app.services.cadastro_publico_service import CadastroPublicoService
+from app.services.cadastro_publico_service import CadastroPublicoService, TERMOS_USO_VERSAO
 
 
 def test_public_signup_creates_pending_without_contract(db):
@@ -18,7 +18,7 @@ def test_public_signup_creates_pending_without_contract(db):
         def send_token(self, *, email, token, purpose):
             pass
     service = CadastroPublicoService(db, FakeMailer())
-    service.solicitar(nome="Empresa Interessada", email=email, senha="SenhaSegura123")
+    service.solicitar(nome="Empresa Interessada", email=email, senha="SenhaSegura123", termos_versao=TERMOS_USO_VERSAO)
     user = db.scalar(select(User).where(User.email == email))
     assert user is not None
     assert user.perfil == PerfilEnum.CLIENTE
@@ -28,7 +28,7 @@ def test_public_signup_creates_pending_without_contract(db):
     assert db.scalar(
         select(Contratacao.id).where(Contratacao.usuario_cliente_id == user.id)
     ) is None
-    service.solicitar(nome="Outra Pessoa", email=email, senha="OutraSenha123")
+    service.solicitar(nome="Outra Pessoa", email=email, senha="OutraSenha123", termos_versao=TERMOS_USO_VERSAO)
     assert db.scalar(select(User).where(User.email == email)).id == user.id
 
 

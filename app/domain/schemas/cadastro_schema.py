@@ -1,5 +1,5 @@
 """Entradas publicas nunca aceitam perfil, empresa ou contrato."""
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from app.core.security import password_exceeds_bcrypt_limit
 
 
@@ -23,6 +23,16 @@ class CadastroPublicoRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     senha: str = Field(min_length=8, max_length=1024)
     turnstile_token: str | None = Field(default=None, max_length=2048)
+
+    termos_aceitos: StrictBool
+    termos_versao: str = Field(min_length=1, max_length=32)
+
+    @field_validator("termos_aceitos")
+    @classmethod
+    def exigir_aceite_dos_termos(cls, aceitos: bool) -> bool:
+        if not aceitos:
+            raise ValueError("Aceite os Termos de Uso para criar a conta.")
+        return aceitos
 
     @field_validator("nome")
     @classmethod
