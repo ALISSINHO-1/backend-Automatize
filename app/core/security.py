@@ -39,7 +39,7 @@ def verify_password_against_dummy() -> None:
     verify_password(_DUMMY_PASSWORD, _DUMMY_PASSWORD_HASH)
 
 
-def create_access_token(subject: str, configured_settings: Settings) -> str:
+def create_access_token(subject: str, configured_settings: Settings, *, token_version: int = 0) -> str:
     secret_key = configured_settings.JWT_SECRET_KEY
     if not secret_key:
         raise RuntimeError("JWT_SECRET_KEY não está configurada.")
@@ -49,7 +49,7 @@ def create_access_token(subject: str, configured_settings: Settings) -> str:
         minutes=configured_settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     return jwt.encode(
-        {"sub": subject, "iat": now, "exp": expires_at},
+        {"sub": subject, "iat": now, "exp": expires_at, "ver": token_version},
         secret_key,
         algorithm=configured_settings.JWT_ALGORITHM,
     )

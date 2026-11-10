@@ -33,4 +33,4 @@ class AuthService:
         if not password_is_valid or not user.ativo:
             raise AuthenticationError
 
-        return create_access_token(str(user.id), self.configured_settings)
+        return create_access_token(str(user.id), self.configured_settings, token_version=user.token_version or 0)
