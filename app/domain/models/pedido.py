@@ -11,6 +11,7 @@ from sqlalchemy import ( # type: ignore
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
     select,
@@ -27,6 +28,7 @@ class Pedido(Base):
     __tablename__ = "pedidos"
 
     __table_args__ = (
+        UniqueConstraint("id", "cliente_id", name="uq_pedidos_id_cliente_id"),
         CheckConstraint(
             "percentual_progresso >= 0 AND percentual_progresso <= 100",
             name="pedidos_percentual_progresso_check",

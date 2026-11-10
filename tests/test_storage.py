@@ -60,6 +60,7 @@ def test_missing_storage_credentials_do_not_create_client(monkeypatch):
 
 def test_upload_uses_default_bucket_unique_paths_and_correct_options():
     client = MagicMock()
+    client.storage.get_bucket.return_value = {"public": False}
     storage = SupabaseStorage(client=client)
     pedido_id = uuid4()
     paths = [storage.upload(pedido_id=pedido_id, nome_arquivo="evidencia.PDF",
@@ -78,6 +79,7 @@ def test_upload_uses_default_bucket_unique_paths_and_correct_options():
 
 def test_storage_wraps_provider_failures():
     client = MagicMock()
+    client.storage.get_bucket.return_value = {"public": False}
     storage = SupabaseStorage(client=client)
     client.storage.from_.return_value.upload.side_effect = RuntimeError("provider secret")
     with pytest.raises(StorageUploadError) as error:
@@ -114,6 +116,7 @@ def test_upload_rejects_path_traversal_without_provider_call(name):
 @pytest.mark.parametrize("cleanup_fails", [False, True])
 def test_ambiguous_upload_error_compensates_only_generated_object(cleanup_fails):
     client = MagicMock()
+    client.storage.get_bucket.return_value = {"public": False}
     bucket = client.storage.from_.return_value
     bucket.upload.side_effect = RuntimeError("key=provider-private-secret")
     if cleanup_fails:

@@ -47,7 +47,7 @@ from app.domain.schemas.demanda_acoes_schema import (
 from app.domain.schemas.demanda_schema import DemandaResponse
 from app.schemas.anexo import AnexoResponse
 from app.domain.schemas.anexo_consulta import AnexoPublico, AnexoAcesso
-from app.infrastructure.storage.supabase_storage import StorageReadError
+from app.infrastructure.storage.supabase_storage import StorageReadError, StorageUploadError
 from app.services.demand_service import DemandService
 
 
@@ -305,9 +305,12 @@ def enviar_evidencia(
     # carregar arquivos arbitrariamente grandes na memoria.
     conteudo = arquivo.file.read(TAMANHO_MAXIMO_BYTES + 1)
     with _regras_como_http():
-        anexo = service.registrar_evidencia(usuario, id, nome_arquivo=arquivo.filename or "",
-                                            conteudo=conteudo, content_type=arquivo.content_type,
-                                            ocorrencia_id=ocorrencia_id)
+        try:
+            anexo = service.registrar_evidencia(usuario, id, nome_arquivo=arquivo.filename or "",
+                                               conteudo=conteudo, content_type=arquivo.content_type,
+                                               ocorrencia_id=ocorrencia_id)
+        except (StorageReadError, StorageUploadError, RuntimeError):
+            raise HTTPException(503, "Envio do arquivo temporariamente indisponivel.") from None
     return AnexoResponse.model_validate(anexo)
 
 
@@ -331,7 +334,7 @@ def listar_anexos(id: UUID, offset: int = Query(0, ge=0), limit: int = Query(100
     with _regras_como_http():
         anexos = service.listar_anexos(usuario, id, offset=offset, limit=limit)
     return [AnexoPublico(
-        id=a.id, pedido_id=a.pedido_id, ocorrencia_id=a.ocorrencia_id,
+        id=a.id, pedido_id=a.pedido_id, ocorrencia_id=a.ocorrencia_id, enviado_por_id=a.enviado_por_id,
         nome_arquivo=a.nome_arquivo, extensao=a.extensao, tamanho_bytes=a.tamanho_bytes,
         created_at=a.created_at, referencia_acesso=f"/demandas/{id}/anexos/{a.id}/acesso",
     ) for a in anexos]

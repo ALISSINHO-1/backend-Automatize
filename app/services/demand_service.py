@@ -21,6 +21,7 @@ from app.core.exceptions import (
     OperacaoConflitanteException,
     RecursoNaoEncontradoException,
     RegistroImutavelException,
+    RegraNegocioException,
     TransicaoEstadoInvalidaException,
 )
 from app.domain.models.aceite_formal import AceiteFormal
@@ -101,12 +102,25 @@ class DemandService:
         pedido = self.obter(usuario, pedido_id)
         return self.etapas.get_by_pedido(pedido.id)
 
-    def listar_anexos(self, usuario: User, pedido_id: UUID, *, offset=0, limit=100):
-        pedido = self.obter(usuario, pedido_id)
+    def _pedido_para_anexos(self, usuario: User, pedido_id: UUID) -> Pedido:
+        self._exigir_usuario_ativo(usuario)
+        try:
+            scope = DemandaQueryService.access_scope(usuario)
+        except DemandAccessDenied:
+            raise AcessoNegadoException("Perfil sem permissao para consultar demandas.") from None
+        pedido = self.pedidos.get_by_id_for_access_scope(pedido_id, for_share=True, **scope)
+        if pedido is None:
+            raise RecursoNaoEncontradoException("Demanda nao encontrada.")
+        return pedido
+
+    def listar_anexos(self, usuario: User, pedido_id: UUID, *, offset: int = 0, limit: int = 100):
+        pedido = self._pedido_para_anexos(usuario, pedido_id)
+        if offset < 0 or not 1 <= limit <= 100:
+            raise RegraNegocioException("Paginacao invalida.")
         return AnexoRepository(self.db).listar_pagina(pedido.id, offset=offset, limit=limit)
 
-    def acessar_anexo(self, usuario: User, pedido_id: UUID, anexo_id: UUID):
-        pedido = self.obter(usuario, pedido_id)
+    def acessar_anexo(self, usuario: User, pedido_id: UUID, anexo_id: UUID) -> str:
+        pedido = self._pedido_para_anexos(usuario, pedido_id)
         anexo = AnexoRepository(self.db).get_by_id(anexo_id)
         if anexo is None or anexo.pedido_id != pedido.id:
             raise RecursoNaoEncontradoException("Anexo nao encontrado nesta demanda.")

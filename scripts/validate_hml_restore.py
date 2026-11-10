@@ -6,7 +6,9 @@ from uuid import uuid4
 
 from sqlalchemy import create_engine, text
 
-from app.infrastructure.database.data_api_security import inspect_access
+from app.infrastructure.database.data_api_security import (
+    PROTECTED_TABLES, inspect_access, require_complete_visibility,
+)
 from scripts.isolated_database import require_isolated_database
 from scripts.schema_preflight import capture_schema
 
@@ -22,11 +24,27 @@ def docker(*args):
 def fingerprint(engine):
     with engine.connect() as c:
         c.exec_driver_sql("SET TRANSACTION READ ONLY")
-        tables = ("users", "pedidos", "ocorrencias", "etapas_operacionais", "aceites_formais", "auditoria_logs", "anexos", "historico_status_pedidos", "alembic_version")
+        require_complete_visibility(c, PROTECTED_TABLES)
+        tables = PROTECTED_TABLES
         # Hash all rows without exporting names, emails, password hashes or text.
         return {table: c.exec_driver_sql(
             f"SELECT count(*),md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) FROM public.{table} t"
         ).one() for table in tables}
+
+
+def restore_schema(connection):
+    schema = capture_schema(connection)
+    # pg_dump/pg_restore on PG17 redistributes varchar->text array casts in
+    # this published CHECK. Normalize only these two exact, equivalent forms;
+    # unknown expressions (including wider channel sets) remain strict diffs.
+    equivalent = {
+        "canal::text = ANY (ARRAY['cliente'::character varying, 'interno'::character varying]::text[])",
+        "canal::text = ANY (ARRAY['cliente'::character varying::text, 'interno'::character varying::text])",
+    }
+    for check in schema["tables"].get("chat_mensagens", {}).get("checks", []):
+        if check["name"] == "chat_mensagens_canal_check" and check["sqltext"] in equivalent:
+            check["sqltext"] = "canal IN ('cliente', 'interno')"
+    return schema
 
 
 def security_fingerprint(engine):
@@ -34,7 +52,7 @@ def security_fingerprint(engine):
         c.exec_driver_sql("SET TRANSACTION READ ONLY")
         return {
             "access": inspect_access(c),
-            "schema": capture_schema(c),
+            "schema": restore_schema(c),
             "table_security": [tuple(row) for row in c.exec_driver_sql("""
                 SELECT c.relname,pg_get_userbyid(c.relowner),c.relrowsecurity,c.relforcerowsecurity
                 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace

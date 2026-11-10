@@ -65,6 +65,15 @@ class SupabaseStorage:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,99}", self.bucket):
             raise ValueError("Nome de bucket inválido.")
 
+    def _require_private_bucket(self) -> None:
+        try:
+            bucket = self.client.storage.get_bucket(self.bucket)
+            public = bucket.get("public") if isinstance(bucket, dict) else bucket.public
+            if public is not False:
+                raise ValueError("Private bucket required")
+        except Exception:
+            raise StorageReadError("Bucket privado indisponível ou sem visibilidade completa.") from None
+
     def upload(
         self,
         *,
@@ -76,6 +85,8 @@ class SupabaseStorage:
         if not isinstance(pedido_id, UUID):
             raise ValueError("pedido_id deve ser UUID.")
         extensao, mime_detectado = validar_arquivo(nome_arquivo, conteudo, content_type)
+        # Fail before uploading bytes when bucket privacy cannot be established.
+        self._require_private_bucket()
         nome_storage = f"{uuid4()}{extensao}"
         caminho = f"pedidos/{pedido_id}/{nome_storage}"
 
@@ -122,12 +133,13 @@ class SupabaseStorage:
             self._validate_path(caminho)
             if type(expires_in) is not int or not 1 <= expires_in <= 600:
                 raise ValueError
+            self._require_private_bucket()
             response = self.client.storage.from_(self.bucket).create_signed_url(caminho, expires_in)
             url = response.get("signedURL") or response.get("signedUrl")
             if not isinstance(url, str):
                 raise ValueError
             parsed = urlsplit(url)
-            if not parsed.hostname or parsed.username or parsed.password:
+            if not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
                 raise ValueError
             local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
             if parsed.scheme != "https" and not local_http:
